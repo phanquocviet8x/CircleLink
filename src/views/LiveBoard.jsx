@@ -218,9 +218,41 @@ function LiveBoard() {
           {/* Left: Event QR Info & Simulation */}
           <div className="host-card qr-section glass">
             <div className="event-details">
-              <div className="event-title-badge">{t.eventLiveBadge}</div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                <div className="event-title-badge">{t.eventLiveBadge}</div>
+                <div className="event-title-badge" style={{ background: 'var(--bg-dark)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
+                  {eventData.event_type === 'online' ? (
+                    <span><i className="fa-solid fa-video" style={{ color: '#06b6d4', marginRight: '4px' }}></i>ONLINE</span>
+                  ) : eventData.event_type === 'hybrid' ? (
+                    <span><i className="fa-solid fa-circle-nodes" style={{ color: '#ec4899', marginRight: '4px' }}></i>HYBRID</span>
+                  ) : (
+                    <span><i className="fa-solid fa-people-group" style={{ color: '#10b981', marginRight: '4px' }}></i>OFFLINE</span>
+                  )}
+                </div>
+              </div>
               <h1>{eventData.title}</h1>
               <p>{eventData.description}</p>
+              
+              {eventData.event_type !== 'offline' && eventData.meeting_link && (
+                <div style={{ 
+                  marginTop: '12px', 
+                  padding: '10px 14px', 
+                  background: 'rgba(255, 255, 255, 0.02)', 
+                  border: '1px solid var(--border-color)', 
+                  borderRadius: '10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '13px',
+                  color: 'var(--text-secondary)'
+                }}>
+                  <i className="fa-solid fa-globe" style={{ color: '#06b6d4' }}></i>
+                  <span>{lang === 'vi' ? 'Link phòng họp:' : 'Meeting Link:'}</span>
+                  <a href={eventData.meeting_link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-pink)', textDecoration: 'none', fontWeight: 'bold' }}>
+                    {eventData.meeting_link} <i className="fa-solid fa-up-right-from-square" style={{ fontSize: '10px', marginLeft: '2px' }}></i>
+                  </a>
+                </div>
+              )}
             </div>
 
             <div className="qr-code-wrapper">

@@ -29,6 +29,8 @@ function HostAdmin() {
   const [desc, setDesc] = useState('');
   const [checkinOpen, setCheckinOpen] = useState(true);
   const [requirePhone, setRequirePhone] = useState(false);
+  const [eventType, setEventType] = useState('offline');
+  const [meetingLink, setMeetingLink] = useState('');
 
   const t = getTranslations(lang);
 
@@ -52,6 +54,8 @@ function HostAdmin() {
       setDesc(event.description || '');
       setCheckinOpen(event.is_checkin_open);
       setRequirePhone(event.require_phone);
+      setEventType(event.event_type || 'offline');
+      setMeetingLink(event.meeting_link || '');
 
       const { data: list, error: listErr } = await eventService.getAttendees(event.id);
       if (!listErr && list) {
@@ -87,15 +91,24 @@ function HostAdmin() {
     };
   }, [eventData]);
 
-  const handleUpdateDetails = async () => {
+  const handleUpdateDetails = async (fieldUpdates = {}) => {
     if (!title.trim()) return;
-    const { error } = await eventService.updateEvent(slug, {
+    const finalUpdates = {
       title: title.trim(),
-      description: desc.trim()
-    });
+      description: desc.trim(),
+      event_type: eventType,
+      meeting_link: eventType !== 'offline' ? meetingLink.trim() : '',
+      ...fieldUpdates
+    };
+    const { error } = await eventService.updateEvent(slug, finalUpdates);
     if (error) {
       alert((lang === 'vi' ? "Lỗi khi cập nhật thông tin: " : "Error updating details: ") + error.message);
     }
+  };
+
+  const handleEventTypeChange = async (newType) => {
+    setEventType(newType);
+    await handleUpdateDetails({ event_type: newType });
   };
 
   const handleToggleCheckin = async (e) => {
@@ -316,10 +329,98 @@ function HostAdmin() {
                   type="text" 
                   value={desc} 
                   onChange={(e) => setDesc(e.target.value)} 
-                  onBlur={handleUpdateDetails}
+                  onBlur={() => handleUpdateDetails()}
                 />
               </div>
             </div>
+
+            <div className="admin-settings-group">
+              <label>{t.eventTypeLabel}</label>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                <button 
+                  type="button"
+                  className={`filter-chip ${eventType === 'offline' ? 'active' : ''}`}
+                  onClick={() => handleEventTypeChange('offline')}
+                  style={{ 
+                    flex: 1, 
+                    padding: '8px 12px', 
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    background: eventType === 'offline' ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.03)',
+                    color: eventType === 'offline' ? '#fff' : 'var(--text-secondary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <i className="fa-solid fa-people-group"></i> 
+                  <span>{t.eventTypeOffline}</span>
+                </button>
+                <button 
+                  type="button"
+                  className={`filter-chip ${eventType === 'online' ? 'active' : ''}`}
+                  onClick={() => handleEventTypeChange('online')}
+                  style={{ 
+                    flex: 1, 
+                    padding: '8px 12px', 
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    background: eventType === 'online' ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.03)',
+                    color: eventType === 'online' ? '#fff' : 'var(--text-secondary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <i className="fa-solid fa-video"></i> 
+                  <span>{t.eventTypeOnline}</span>
+                </button>
+                <button 
+                  type="button"
+                  className={`filter-chip ${eventType === 'hybrid' ? 'active' : ''}`}
+                  onClick={() => handleEventTypeChange('hybrid')}
+                  style={{ 
+                    flex: 1, 
+                    padding: '8px 12px', 
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    background: eventType === 'hybrid' ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.03)',
+                    color: eventType === 'hybrid' ? '#fff' : 'var(--text-secondary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <i className="fa-solid fa-circle-nodes"></i> 
+                  <span>{t.eventTypeHybrid}</span>
+                </button>
+              </div>
+            </div>
+
+            {eventType !== 'offline' && (
+              <div className="admin-settings-group" style={{ animation: 'fadeIn 0.3s ease' }}>
+                <label>{t.meetingLinkLabel}</label>
+                <div className="input-wrapper">
+                  <i className="fa-solid fa-globe input-icon"></i>
+                  <input 
+                    type="url" 
+                    placeholder={t.meetingLinkPlaceholder}
+                    value={meetingLink} 
+                    onChange={(e) => setMeetingLink(e.target.value)} 
+                    onBlur={() => handleUpdateDetails({ meeting_link: meetingLink.trim() })}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="admin-settings-switches">
               <div className="admin-switch-row">

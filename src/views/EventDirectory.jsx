@@ -231,6 +231,71 @@ function EventDirectory() {
 
       <main className="app-container">
         
+        {eventData && eventData.event_type !== 'offline' && eventData.meeting_link && (
+          <div 
+            className="glass" 
+            style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              padding: '16px 20px', 
+              borderRadius: '16px', 
+              marginBottom: '20px', 
+              border: '1px solid rgba(6, 182, 212, 0.25)', 
+              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(124, 58, 237, 0.05) 100%)',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div 
+                style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  borderRadius: '50%', 
+                  background: 'rgba(6, 182, 212, 0.15)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: '#06b6d4',
+                  fontSize: '18px'
+                }}
+              >
+                <i className="fa-solid fa-video"></i>
+              </div>
+              <div>
+                <h4 style={{ margin: 0, fontWeight: '700', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px' }}>
+                  <span>{t.onlineMeetingActive}</span>
+                  <span style={{ fontSize: '11px', background: '#06b6d4', color: '#000', padding: '1px 6px', borderRadius: '10px', fontWeight: 'bold' }}>LIVE</span>
+                </h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                  {lang === 'vi' ? 'Nhấn nút bên phải để kết nối trực tiếp vào phòng Zoom/Meet.' : 'Click the button on the right to join the Zoom/Meet room directly.'}
+                </p>
+              </div>
+            </div>
+            
+            <a 
+              href={eventData.meeting_link} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="btn btn-primary btn-glow"
+              style={{ 
+                padding: '10px 20px', 
+                borderRadius: '20px', 
+                fontSize: '13px', 
+                fontWeight: 'bold', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px',
+                textDecoration: 'none'
+              }}
+            >
+              <i className="fa-solid fa-up-right-from-square"></i>
+              <span>{t.joinMeetingBtn}</span>
+            </a>
+          </div>
+        )}
+        
         {/* Search & Filters */}
         <div className="directory-control-panel glass">
           <div className="search-box">

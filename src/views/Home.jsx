@@ -10,6 +10,8 @@ function Home() {
   const [slug, setSlug] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [eventType, setEventType] = useState('offline');
+  const [meetingLink, setMeetingLink] = useState('');
   
   // Multilingual State ('vi' or 'en')
   const [lang, setLang] = useState(getLanguage());
@@ -66,11 +68,24 @@ function Home() {
       return;
     }
 
+    // Basic meeting link check
+    if (eventType !== 'offline' && !meetingLink.trim()) {
+      setError(lang === 'vi' ? 'Vui lòng nhập liên kết cuộc họp trực tuyến.' : 'Please enter the online meeting link.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     const cleanSlug = slug.trim().toLowerCase();
-    const { data, error: serviceError } = await eventService.createEvent(cleanSlug, title.trim(), desc.trim(), hostEmail);
+    const { data, error: serviceError } = await eventService.createEvent(
+      cleanSlug, 
+      title.trim(), 
+      desc.trim(), 
+      hostEmail, 
+      eventType, 
+      eventType !== 'offline' ? meetingLink.trim() : ''
+    );
 
     setLoading(false);
 
@@ -280,6 +295,109 @@ function Home() {
                 />
               </div>
             </div>
+
+            <div className="form-group-home">
+              <label>{t.eventTypeLabel}</label>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
+                <label 
+                  className={`filter-chip ${eventType === 'offline' ? 'active' : ''}`} 
+                  style={{ 
+                    cursor: 'pointer', 
+                    padding: '8px 16px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px',
+                    margin: 0,
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    background: eventType === 'offline' ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.03)',
+                    color: eventType === 'offline' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input 
+                    type="radio" 
+                    name="eventType" 
+                    value="offline" 
+                    checked={eventType === 'offline'} 
+                    onChange={() => setEventType('offline')}
+                    style={{ display: 'none' }}
+                  />
+                  <i className="fa-solid fa-people-group"></i>
+                  <span>{t.eventTypeOffline}</span>
+                </label>
+                <label 
+                  className={`filter-chip ${eventType === 'online' ? 'active' : ''}`} 
+                  style={{ 
+                    cursor: 'pointer', 
+                    padding: '8px 16px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px',
+                    margin: 0,
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    background: eventType === 'online' ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.03)',
+                    color: eventType === 'online' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input 
+                    type="radio" 
+                    name="eventType" 
+                    value="online" 
+                    checked={eventType === 'online'} 
+                    onChange={() => setEventType('online')}
+                    style={{ display: 'none' }}
+                  />
+                  <i className="fa-solid fa-video"></i>
+                  <span>{t.eventTypeOnline}</span>
+                </label>
+                <label 
+                  className={`filter-chip ${eventType === 'hybrid' ? 'active' : ''}`} 
+                  style={{ 
+                    cursor: 'pointer', 
+                    padding: '8px 16px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px',
+                    margin: 0,
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    background: eventType === 'hybrid' ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.03)',
+                    color: eventType === 'hybrid' ? '#fff' : 'var(--text-secondary)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <input 
+                    type="radio" 
+                    name="eventType" 
+                    value="hybrid" 
+                    checked={eventType === 'hybrid'} 
+                    onChange={() => setEventType('hybrid')}
+                    style={{ display: 'none' }}
+                  />
+                  <i className="fa-solid fa-circle-nodes"></i>
+                  <span>{t.eventTypeHybrid}</span>
+                </label>
+              </div>
+            </div>
+
+            {eventType !== 'offline' && (
+              <div className="form-group-home" style={{ animation: 'fadeIn 0.3s ease' }}>
+                <label>{t.meetingLinkLabel} <span className="required">*</span></label>
+                <div className="input-wrapper">
+                  <i className="fa-solid fa-globe input-icon"></i>
+                  <input 
+                    type="url" 
+                    placeholder={t.meetingLinkPlaceholder} 
+                    value={meetingLink} 
+                    onChange={(e) => setMeetingLink(e.target.value)} 
+                    required 
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="form-group-home">
               <label>{t.formSlugLabel} <span className="required">*</span></label>

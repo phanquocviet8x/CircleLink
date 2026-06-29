@@ -40,6 +40,8 @@ export const eventService = {
                     description: slug === 'test-event' ? 'Chia sẻ công nghệ, kết nối đầu tư và tìm kiếm cộng sự phát triển dự án.' : 'Chào mừng bạn tham gia sự kiện và kết nối vòng tròn quan hệ.',
                     is_checkin_open: true,
                     require_phone: false,
+                    event_type: slug === 'test-event' ? 'hybrid' : 'offline',
+                    meeting_link: slug === 'test-event' ? 'https://zoom.us/j/123456789' : '',
                     created_at: new Date().toISOString()
                 };
                 events[slug] = defaultEvent;
@@ -60,7 +62,7 @@ export const eventService = {
     /**
      * Create a new event
      */
-    async createEvent(slug, title, description, hostEmail = null) {
+    async createEvent(slug, title, description, hostEmail = null, eventType = 'offline', meetingLink = '') {
         if (isDemoMode) {
             const events = getLocalEvents();
             if (events[slug]) {
@@ -74,6 +76,8 @@ export const eventService = {
                 host_email: hostEmail,
                 is_checkin_open: true,
                 require_phone: false,
+                event_type: eventType,
+                meeting_link: meetingLink,
                 created_at: new Date().toISOString()
             };
             events[slug] = newEvent;
@@ -82,7 +86,14 @@ export const eventService = {
         } else {
             const { data, error } = await supabase
                 .from('events')
-                .insert([{ slug, title, description, host_email: hostEmail }])
+                .insert([{ 
+                    slug, 
+                    title, 
+                    description, 
+                    host_email: hostEmail,
+                    event_type: eventType,
+                    meeting_link: meetingLink
+                }])
                 .select()
                 .single();
             return { data, error };

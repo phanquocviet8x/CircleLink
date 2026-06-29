@@ -23,6 +23,7 @@ function GuestCheckin() {
   
   // Multilingual State
   const [lang, setLang] = useState(getLanguage());
+  const [checkedIn, setCheckedIn] = useState(false);
 
   // Form Fields
   const [avatar, setAvatar] = useState('avatar-1');
@@ -142,12 +143,8 @@ function GuestCheckin() {
         localStorage.setItem(`last_checkin_time_${slug}`, Date.now().toString());
       } catch (_) {}
 
+      setCheckedIn(true);
       showToast(t.checkinSuccessConfetti);
-      
-      // Redirect to Directory
-      setTimeout(() => {
-        navigate(`/directory/${slug}`);
-      }, 1000);
     }
   };
 
@@ -195,6 +192,103 @@ function GuestCheckin() {
               <i className="fa-solid fa-address-book"></i> {t.checkinBtnGoDirectory}
             </Link>
             <Link to="/" className="btn btn-outline">{t.checkinBtnGoHome}</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (checkedIn) {
+    return (
+      <div className="warm-theme">
+        <div className="bg-blob blob-1"></div>
+        <div className="bg-blob blob-2"></div>
+        <div className="bg-blob blob-3"></div>
+
+        <header className="app-header">
+          <div className="header-container">
+            <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <Logo variant={1} showText={true} size={30} />
+            </Link>
+            
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button className="lang-toggle-btn" onClick={handleLangToggle}>
+                <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
+                {lang === 'vi' ? 'EN' : 'VI'}
+              </button>
+            </div>
+          </div>
+        </header>
+        
+        <div className="app-container" style={{ margin: '80px auto' }}>
+          <div className="checkin-container glass" style={{ textAlign: 'center', padding: '40px 30px' }}>
+            <div style={{ fontSize: '64px', color: '#10b981', marginBottom: '20px' }}>
+              <i className="fa-solid fa-circle-check"></i>
+            </div>
+            <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: '800', marginBottom: '8px' }}>
+              {lang === 'vi' ? 'Check-in Thành Công!' : 'Check-in Successful!'}
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>
+              {eventData.event_type !== 'offline' && eventData.meeting_link
+                ? t.checkinSuccessOnline
+                : (lang === 'vi' ? 'Thông tin của bạn đã được ghi nhận. Hãy tiếp tục kết nối với mọi người.' : 'Your profile has been saved. Go connect with other participants.')}
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '320px', margin: '0 auto' }}>
+              {eventData.event_type !== 'offline' && eventData.meeting_link && (
+                <a 
+                  href={eventData.meeting_link} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="btn btn-primary btn-glow"
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '8px', 
+                    textDecoration: 'none',
+                    padding: '12px',
+                    borderRadius: '24px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  <i className="fa-solid fa-video"></i> {t.joinMeetingBtn}
+                </a>
+              )}
+              <Link 
+                to={`/directory/${slug}`} 
+                className={eventData.event_type !== 'offline' && eventData.meeting_link ? "btn btn-outline" : "btn btn-primary btn-glow"}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  textDecoration: 'none',
+                  padding: '12px',
+                  borderRadius: '24px',
+                  fontWeight: 'bold'
+                }}
+              >
+                <i className="fa-solid fa-address-book"></i> {t.checkinBtnGoDirectory}
+              </Link>
+              <Link 
+                to="/" 
+                className="btn btn-outline"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  textDecoration: 'none',
+                  padding: '12px',
+                  borderRadius: '24px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-muted)'
+                }}
+              >
+                {t.checkinBtnGoHome}
+              </Link>
+            </div>
           </div>
         </div>
       </div>
