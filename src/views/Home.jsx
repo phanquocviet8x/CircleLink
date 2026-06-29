@@ -307,7 +307,13 @@ function Home() {
                     display: 'inline-flex', 
                     alignItems: 'center', 
                     gap: '6px',
-                    margin: 0
+                    margin: 0,
+                    borderRadius: '20px',
+                    transition: 'all 0.2s',
+                    border: eventType === 'offline' ? '1px solid rgba(59, 42, 30, 0.3)' : '1px solid rgba(59, 42, 30, 0.08)',
+                    background: eventType === 'offline' ? 'rgba(59, 42, 30, 0.12)' : 'rgba(59, 42, 30, 0.03)',
+                    color: eventType === 'offline' ? '#3b2a1e' : 'rgba(59, 42, 30, 0.6)',
+                    fontWeight: eventType === 'offline' ? 'bold' : 'normal'
                   }}
                 >
                   <input 
@@ -329,7 +335,13 @@ function Home() {
                     display: 'inline-flex', 
                     alignItems: 'center', 
                     gap: '6px',
-                    margin: 0
+                    margin: 0,
+                    borderRadius: '20px',
+                    transition: 'all 0.2s',
+                    border: eventType === 'online' ? '1px solid rgba(59, 42, 30, 0.3)' : '1px solid rgba(59, 42, 30, 0.08)',
+                    background: eventType === 'online' ? 'rgba(59, 42, 30, 0.12)' : 'rgba(59, 42, 30, 0.03)',
+                    color: eventType === 'online' ? '#3b2a1e' : 'rgba(59, 42, 30, 0.6)',
+                    fontWeight: eventType === 'online' ? 'bold' : 'normal'
                   }}
                 >
                   <input 
@@ -351,7 +363,13 @@ function Home() {
                     display: 'inline-flex', 
                     alignItems: 'center', 
                     gap: '6px',
-                    margin: 0
+                    margin: 0,
+                    borderRadius: '20px',
+                    transition: 'all 0.2s',
+                    border: eventType === 'hybrid' ? '1px solid rgba(59, 42, 30, 0.3)' : '1px solid rgba(59, 42, 30, 0.08)',
+                    background: eventType === 'hybrid' ? 'rgba(59, 42, 30, 0.12)' : 'rgba(59, 42, 30, 0.03)',
+                    color: eventType === 'hybrid' ? '#3b2a1e' : 'rgba(59, 42, 30, 0.6)',
+                    fontWeight: eventType === 'hybrid' ? 'bold' : 'normal'
                   }}
                 >
                   <input 
