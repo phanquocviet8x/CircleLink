@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { eventService } from '../services/eventService';
 import { isDemoMode } from '../supabaseClient';
 import confetti from 'canvas-confetti';
+import Logo from '../components/Logo';
+import { getTranslations, getLanguage, setLanguage } from '../services/translations';
 
 const avatarPresets = {
   'avatar-1': { icon: 'fa-user-astronaut', style: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' },
@@ -28,18 +30,29 @@ function LiveBoard() {
   const [loading, setLoading] = useState(true);
   const [simulating, setSimulating] = useState(false);
   
+  // Multilingual state
+  const [lang, setLang] = useState(getLanguage());
+  
   const attendeesRef = useRef([]);
 
   useEffect(() => {
     attendeesRef.current = attendeesList;
   }, [attendeesList]);
 
+  const t = getTranslations(lang);
+
+  const handleLangToggle = () => {
+    const newLang = lang === 'vi' ? 'en' : 'vi';
+    setLanguage(newLang);
+    setLang(newLang);
+  };
+
   useEffect(() => {
     async function loadEventAndAttendees() {
       setLoading(true);
       const { data: event, error: eventErr } = await eventService.getEvent(slug);
       if (eventErr || !event) {
-        alert("Sự kiện không tồn tại!");
+        alert(lang === 'vi' ? "Sự kiện không tồn tại!" : "Event not found!");
         navigate('/');
         return;
       }
@@ -52,7 +65,7 @@ function LiveBoard() {
       setLoading(false);
     }
     loadEventAndAttendees();
-  }, [slug, navigate]);
+  }, [slug, navigate, lang]);
 
   // Subscribe to real-time checkins
   useEffect(() => {
@@ -93,7 +106,7 @@ function LiveBoard() {
 
   const simulateGuest = async () => {
     if (!eventData || !eventData.is_checkin_open) {
-      alert("Cổng check-in đang đóng. Hãy mở cổng check-in trong Bảng Quản Trị trước!");
+      alert(lang === 'vi' ? "Cổng check-in đang đóng. Hãy mở cổng check-in trong Bảng Quản Trị trước!" : "Check-in gate is closed. Please open it in Host Admin first!");
       return;
     }
 
@@ -142,7 +155,7 @@ function LiveBoard() {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>
-        <h3><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '10px' }}></i> Đang tải dữ liệu sự kiện...</h3>
+        <h3><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '10px' }}></i> {lang === 'vi' ? 'Đang tải dữ liệu sự kiện...' : 'Loading event data...'}</h3>
       </div>
     );
   }
@@ -163,30 +176,39 @@ function LiveBoard() {
   });
 
   const checkinUrl = `${window.location.origin}${window.location.pathname}#/checkin/${slug}`;
-  const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(checkinUrl)}&color=ffffff&bgcolor=111218`;
+  const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(checkinUrl)}&color=3b2a1e&bgcolor=fffdf9`;
 
   return (
-    <div className="dark-mode">
+    <div className="warm-theme">
+      {/* Background blobs */}
       <div className="bg-blob blob-1"></div>
       <div className="bg-blob blob-2"></div>
       <div className="bg-blob blob-3"></div>
 
       <header className="app-header">
         <div className="header-container">
-          <Link to="/" className="logo">
-            <div className="logo-icon">L</div>
-            <span className="logo-text">Circle<span>Link</span></span>
+          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Logo variant={1} showText={true} size={30} />
           </Link>
-          <nav className="nav-tabs">
-            <button className="nav-tab active">
-              <i className="fa-solid fa-desktop"></i>
-              <span>Live Board</span>
+
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            {/* Language Switcher pill */}
+            <button className="lang-toggle-btn" onClick={handleLangToggle}>
+              <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
+              {lang === 'vi' ? 'EN' : 'VI'}
             </button>
-            <button className="nav-tab" onClick={() => navigate(`/event/${slug}/admin`)}>
-              <i className="fa-solid fa-sliders"></i>
-              <span>Host Admin</span>
-            </button>
-          </nav>
+
+            <nav className="nav-tabs" style={{ background: 'transparent', border: 'none', padding: 0 }}>
+              <button className="nav-tab active">
+                <i className="fa-solid fa-desktop"></i>
+                <span>{t.liveBoard}</span>
+              </button>
+              <button className="nav-tab" onClick={() => navigate(`/event/${slug}/admin`)}>
+                <i className="fa-solid fa-sliders"></i>
+                <span>{t.hostAdmin}</span>
+              </button>
+            </nav>
+          </div>
         </div>
       </header>
 
@@ -196,7 +218,7 @@ function LiveBoard() {
           {/* Left: Event QR Info & Simulation */}
           <div className="host-card qr-section glass">
             <div className="event-details">
-              <div className="event-title-badge">SỰ KIỆN ĐANG DIỄN RA</div>
+              <div className="event-title-badge">{t.eventLiveBadge}</div>
               <h1>{eventData.title}</h1>
               <p>{eventData.description}</p>
             </div>
@@ -204,33 +226,39 @@ function LiveBoard() {
             <div className="qr-code-wrapper">
               <div className="qr-container">
                 <img src={qrCodeApiUrl} alt="QR Check-in" />
-                <div className="qr-overlay">
-                  <span className="logo-icon mini">O</span>
+                <div className="qr-overlay" style={{ background: 'var(--bg-darker)', borderRadius: '50%', padding: '4px' }}>
+                  <Logo variant={1} size={24} animated={false} />
                 </div>
               </div>
               <div className="qr-instruction">
                 <i className="fa-solid fa-qrcode"></i>
-                <span>Quét mã để check-in & chia sẻ profile của bạn</span>
+                <span>{t.qrInstruction}</span>
               </div>
             </div>
 
             {/* Simulation controls */}
             <div className="simulator-console">
               <div className="console-header">
-                <i className="fa-solid fa-terminal"></i> Bảng điều khiển Demo (Simulator)
+                <i className="fa-solid fa-terminal"></i> {t.simulatorConsole}
               </div>
-              <p>Giả lập người check-in thời gian thực trên các thiết bị di động khác để thử nghiệm Live Board.</p>
+              <p>
+                {lang === 'vi' 
+                  ? 'Giả lập người check-in thời gian thực trên các thiết bị di động khác để thử nghiệm Live Board.' 
+                  : 'Simulate real-time guest check-ins from mobile devices to test the Live Board.'}
+              </p>
               <div className="console-actions">
                 <button onClick={simulateGuest} className="btn btn-secondary btn-glow" disabled={simulating}>
-                  <i className="fa-solid fa-robot"></i> Mô phỏng 1 người
+                  <i className="fa-solid fa-robot"></i> {lang === 'vi' ? 'Mô phỏng 1 người' : 'Simulate 1 Guest'}
                 </button>
                 <button onClick={simulateMultipleGuests} className="btn btn-outline" disabled={simulating}>
-                  <i className="fa-solid fa-users-rays"></i> Mô phỏng +5 người
+                  <i className="fa-solid fa-users-rays"></i> {lang === 'vi' ? 'Mô phỏng +5 người' : 'Simulate 5 Guests'}
                 </button>
               </div>
               {isDemoMode && (
                 <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--accent-violet)' }}>
-                  * Đang chạy ở chế độ Demo Fallback (Dữ liệu lưu tạm trên trình duyệt này)
+                  {lang === 'vi' 
+                    ? '* Đang chạy ở chế độ Demo Fallback (Dữ liệu lưu tạm trên trình duyệt này)' 
+                    : '* Running in Demo Fallback Mode (Data stored locally in this browser)'}
                 </div>
               )}
             </div>
@@ -241,10 +269,10 @@ function LiveBoard() {
             <div className="section-title-bar">
               <h2>
                 <span className="live-indicator"></span>
-                <span>Khách vừa Check-in</span>
+                <span>{lang === 'vi' ? 'Khách vừa Check-in' : 'Recent Check-ins'}</span>
               </h2>
               <div className="stat-badge">
-                <span>{attendeesList.length}</span> đã tham gia
+                <span>{attendeesList.length}</span> {lang === 'vi' ? 'đã tham gia' : 'joined'}
               </div>
             </div>
 
@@ -263,7 +291,7 @@ function LiveBoard() {
               </div>
               <div className="stat-mini-card">
                 <span className="stat-val">{others}</span>
-                <span className="stat-label">Khác</span>
+                <span className="stat-label">{t.roleOther}</span>
               </div>
             </div>
 
@@ -272,11 +300,11 @@ function LiveBoard() {
                 attendeesList.map((guest) => {
                   const av = avatarPresets[guest.avatar] || avatarPresets['avatar-1'];
                   const checkinTime = guest.created_at 
-                    ? new Date(guest.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                    ? new Date(guest.created_at).toLocaleTimeString(lang === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
                     : '14:00';
                   return (
                     <div key={guest.id} className="live-guest-item">
-                      <div className="guest-item-avatar" style={{ background: av.style }}>
+                       <div className="guest-item-avatar" style={{ background: av.style }}>
                         <i className={`fa-solid ${av.icon}`}></i>
                       </div>
                       <div className="guest-item-info">
@@ -287,14 +315,14 @@ function LiveBoard() {
                         <div className="guest-item-bio">{guest.bio}</div>
                         {(guest.looking || guest.help) && (
                           <div className="guest-item-icebreakers">
-                            {guest.looking && guest.looking !== 'Không chia sẻ cụ thể.' && (
+                            {guest.looking && guest.looking !== 'Không chia sẻ cụ thể.' && guest.looking !== 'Not specified.' && (
                               <span className="icebreaker-tag looking">
-                                <i className="fa-solid fa-magnifying-glass"></i> Tìm: {guest.looking}
+                                <i className="fa-solid fa-magnifying-glass"></i> {lang === 'vi' ? 'Tìm: ' : 'Seek: '}{guest.looking}
                               </span>
                             )}
-                            {guest.help && guest.help !== 'Không chia sẻ cụ thể.' && (
+                            {guest.help && guest.help !== 'Không chia sẻ cụ thể.' && guest.help !== 'Not specified.' && (
                               <span className="icebreaker-tag help">
-                                <i className="fa-solid fa-handshake-angle"></i> Giúp: {guest.help}
+                                <i className="fa-solid fa-handshake-angle"></i> {lang === 'vi' ? 'Giúp: ' : 'Help: '}{guest.help}
                               </span>
                             )}
                           </div>
@@ -307,7 +335,7 @@ function LiveBoard() {
               ) : (
                 <div className="empty-stream">
                   <i className="fa-solid fa-ghost"></i>
-                  <p>Chưa có ai check-in. Sử dụng bảng điều khiển giả lập bên cạnh để kiểm tra!</p>
+                  <p>{t.waitingFirstGuest}</p>
                 </div>
               )}
             </div>

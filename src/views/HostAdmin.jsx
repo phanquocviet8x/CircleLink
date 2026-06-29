@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { eventService } from '../services/eventService';
+import Logo from '../components/Logo';
+import { getTranslations, getLanguage, setLanguage } from '../services/translations';
 
 const avatarPresets = {
   'avatar-1': { icon: 'fa-user-astronaut', style: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' },
@@ -19,18 +21,29 @@ function HostAdmin() {
   const [loading, setLoading] = useState(true);
   const [searchVal, setSearchVal] = useState('');
   
+  // Multilingual state
+  const [lang, setLang] = useState(getLanguage());
+  
   // Local state for settings form
   const [title, setTitle] = useState('');
   const [desc, setDesc] = useState('');
   const [checkinOpen, setCheckinOpen] = useState(true);
   const [requirePhone, setRequirePhone] = useState(false);
 
+  const t = getTranslations(lang);
+
+  const handleLangToggle = () => {
+    const newLang = lang === 'vi' ? 'en' : 'vi';
+    setLanguage(newLang);
+    setLang(newLang);
+  };
+
   useEffect(() => {
     async function loadEventData() {
       setLoading(true);
       const { data: event, error: eventErr } = await eventService.getEvent(slug);
       if (eventErr || !event) {
-        alert("Sự kiện không tồn tại!");
+        alert(lang === 'vi' ? "Sự kiện không tồn tại!" : "Event not found!");
         navigate('/');
         return;
       }
@@ -47,7 +60,7 @@ function HostAdmin() {
       setLoading(false);
     }
     loadEventData();
-  }, [slug, navigate]);
+  }, [slug, navigate, lang]);
 
   // Subscribe to real-time check-ins to keep the admin list synced
   useEffect(() => {
@@ -81,7 +94,7 @@ function HostAdmin() {
       description: desc.trim()
     });
     if (error) {
-      alert("Lỗi khi cập nhật thông tin: " + error.message);
+      alert((lang === 'vi' ? "Lỗi khi cập nhật thông tin: " : "Error updating details: ") + error.message);
     }
   };
 
@@ -106,49 +119,68 @@ function HostAdmin() {
   };
 
   const handleKick = async (id, name) => {
-    const confirmKick = confirm(`Bạn có chắc chắn muốn xóa thành viên "${name}" khỏi sự kiện không?`);
+    const confirmKick = confirm(lang === 'vi' ? `Bạn có chắc chắn muốn xóa thành viên "${name}" khỏi sự kiện không?` : `Are you sure you want to remove "${name}" from this event?`);
     if (!confirmKick) return;
 
     const { error } = await eventService.kickAttendee(id);
     if (!error) {
       setAttendeesList(prev => prev.filter(a => a.id !== id));
     } else {
-      alert("Lỗi khi xóa thành viên: " + error.message);
+      alert((lang === 'vi' ? "Lỗi khi xóa thành viên: " : "Error removing member: ") + error.message);
     }
   };
 
   const handleResetEvent = async () => {
-    const confirmReset = confirm("CẢNH BÁO:\nBạn có chắc chắn muốn xóa sạch toàn bộ danh sách check-in?\nThao tác này sẽ dọn dẹp sạch cả bảng và không thể phục hồi.");
+    const confirmReset = confirm(lang === 'vi' ? "CẢNH BÁO:\nBạn có chắc chắn muốn xóa sạch toàn bộ danh sách check-in?\nThao tác này sẽ dọn dẹp sạch cả bảng và không thể phục hồi." : "WARNING:\nAre you sure you want to clear the entire check-in list?\nThis action will completely wipe the database table and cannot be undone.");
     if (!confirmReset) return;
 
     const { error } = await eventService.resetEvent(eventData.id);
     if (!error) {
       setAttendeesList([]);
     } else {
-      alert("Lỗi khi xóa sạch dữ liệu: " + error.message);
+      alert((lang === 'vi' ? "Lỗi khi xóa sạch dữ liệu: " : "Error clearing data: ") + error.message);
     }
   };
 
   const exportToCSV = () => {
     if (attendeesList.length === 0) {
-      alert("Danh sách trống. Không thể xuất file CSV.");
+      alert(lang === 'vi' ? "Danh sách trống. Không thể xuất file CSV." : "Check-in list is empty. Cannot export CSV.");
       return;
     }
 
-    let csvContent = 'Họ tên,Vai trò,Bio,Đang tìm kiếm,Có thể giúp đỡ,Điện thoại/Zalo,Email,Telegram,Facebook,LinkedIn,Instagram,Thời gian Check-in\r\n';
+    const parseJsonField = (field) => {
+      if (!field) return {};
+      if (typeof field === 'object') return field;
+      try {
+        return JSON.parse(field);
+      } catch (_) {
+        return {};
+      }
+    };
+
+    // Prepend 'sep=,' so Excel overrides local regional separator settings
+    let csvContent = 'sep=,\r\n' + (lang === 'vi'
+      ? 'Họ tên,Vai trò,Bio,Đang tìm kiếm,Có thể giúp đỡ,Điện thoại/Zalo,Quyền SĐT,Email,Quyền Email,Telegram,Facebook,LinkedIn,Instagram,Thời gian Check-in\r\n'
+      : 'Name,Role,Bio,Looking For,Can Help With,Phone/Zalo,Phone Privacy,Email,Email Privacy,Telegram,Facebook,LinkedIn,Instagram,Check-in Time\r\n');
     
     attendeesList.forEach(guest => {
-      const escape = (str) => {
-        if (!str) return '';
-        return `"${str.replace(/"/g, '""')}"`;
+      const escape = (val) => {
+        if (val === null || val === undefined) return '';
+        return `"${val.toString().replace(/"/g, '""')}"`;
       };
+
+      const contactsObj = parseJsonField(guest.contacts);
+      const privacyObj = parseJsonField(guest.privacy);
       
-      const phone = (guest.privacy?.phone && guest.contacts?.phone) ? guest.contacts.phone : 'Ẩn (Private)';
-      const email = (guest.privacy?.email && guest.contacts?.email) ? guest.contacts.email : 'Ẩn (Private)';
-      const telegram = (guest.privacy?.telegram && guest.contacts?.telegram) ? guest.contacts.telegram : 'Ẩn (Private)';
-      const facebook = (guest.privacy?.facebook && guest.contacts?.facebook) ? guest.contacts.facebook : 'Ẩn (Private)';
-      const linkedin = (guest.privacy?.linkedin && guest.contacts?.linkedin) ? guest.contacts.linkedin : 'Ẩn (Private)';
-      const instagram = (guest.privacy?.instagram && guest.contacts?.instagram) ? guest.contacts.instagram : 'Ẩn (Private)';
+      const phone = contactsObj.phone || '';
+      const email = contactsObj.email || '';
+      const telegram = contactsObj.telegram || '';
+      const facebook = contactsObj.facebook || '';
+      const linkedin = contactsObj.linkedin || '';
+      const instagram = contactsObj.instagram || '';
+
+      const phonePrivacy = privacyObj.phone ? (lang === 'vi' ? 'Công khai' : 'Public') : (lang === 'vi' ? 'Riêng tư' : 'Private');
+      const emailPrivacy = privacyObj.email ? (lang === 'vi' ? 'Công khai' : 'Public') : (lang === 'vi' ? 'Riêng tư' : 'Private');
       
       const row = [
         escape(guest.name),
@@ -157,7 +189,9 @@ function HostAdmin() {
         escape(guest.looking),
         escape(guest.help),
         escape(phone),
+        escape(phonePrivacy),
         escape(email),
+        escape(emailPrivacy),
         escape(telegram),
         escape(facebook),
         escape(linkedin),
@@ -170,7 +204,7 @@ function HostAdmin() {
     
     const BOM = '\uFEFF';
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const filename = `danh_sach_checkin_${slug}_${Date.now()}.csv`;
+    const filename = `checkin_list_${slug}_${Date.now()}.csv`;
     
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -184,7 +218,7 @@ function HostAdmin() {
 
   const downloadQRCode = () => {
     const checkinUrl = `${window.location.origin}${window.location.pathname}#/checkin/${slug}`;
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(checkinUrl)}&color=ffffff&bgcolor=111218`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(checkinUrl)}&color=3b2a1e&bgcolor=fffdf9`;
     
     fetch(qrUrl)
       .then(resp => resp.blob())
@@ -206,7 +240,7 @@ function HostAdmin() {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>
-        <h3><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '10px' }}></i> Đang tải cấu hình Admin...</h3>
+        <h3><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '10px' }}></i> {lang === 'vi' ? 'Đang tải cấu hình Admin...' : 'Loading Admin config...'}</h3>
       </div>
     );
   }
@@ -218,27 +252,36 @@ function HostAdmin() {
   });
 
   return (
-    <div className="dark-mode">
+    <div className="warm-theme">
+      {/* Background blobs */}
       <div className="bg-blob blob-1"></div>
       <div className="bg-blob blob-2"></div>
       <div className="bg-blob blob-3"></div>
 
       <header className="app-header">
         <div className="header-container">
-          <Link to="/" className="logo">
-            <div className="logo-icon">L</div>
-            <span className="logo-text">Circle<span>Link</span></span>
+          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Logo variant={1} showText={true} size={30} />
           </Link>
-          <nav className="nav-tabs">
-            <button className="nav-tab" onClick={() => navigate(`/event/${slug}`)}>
-              <i className="fa-solid fa-desktop"></i>
-              <span>Live Board</span>
+
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            {/* Language Switcher Button */}
+            <button className="lang-toggle-btn" onClick={handleLangToggle}>
+              <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
+              {lang === 'vi' ? 'EN' : 'VI'}
             </button>
-            <button className="nav-tab active">
-              <i className="fa-solid fa-sliders"></i>
-              <span>Host Admin</span>
-            </button>
-          </nav>
+
+            <nav className="nav-tabs" style={{ background: 'transparent', border: 'none', padding: 0 }}>
+              <button className="nav-tab" onClick={() => navigate(`/event/${slug}`)}>
+                <i className="fa-solid fa-desktop"></i>
+                <span>{t.liveBoard}</span>
+              </button>
+              <button className="nav-tab active">
+                <i className="fa-solid fa-sliders"></i>
+                <span>{t.hostAdmin}</span>
+              </button>
+            </nav>
+          </div>
         </div>
       </header>
 
@@ -248,12 +291,12 @@ function HostAdmin() {
           {/* Left: Configuration & Settings Form */}
           <div className="host-card admin-settings glass">
             <div className="admin-header-title">
-              <h3><i className="fa-solid fa-gears"></i> Thiết lập sự kiện</h3>
-              <p>Điều chỉnh cấu hình check-in và quản lý dữ liệu.</p>
+              <h3><i className="fa-solid fa-gears"></i> {t.adminConfig}</h3>
+              <p>{t.adminDesc}</p>
             </div>
 
             <div className="admin-settings-group">
-              <label>Tên Sự Kiện</label>
+              <label>{t.adminNameLabel}</label>
               <div className="input-wrapper">
                 <i className="fa-solid fa-heading input-icon"></i>
                 <input 
@@ -266,7 +309,7 @@ function HostAdmin() {
             </div>
 
             <div className="admin-settings-group">
-              <label>Mô tả sự kiện</label>
+              <label>{t.adminDescLabel}</label>
               <div className="input-wrapper">
                 <i className="fa-solid fa-align-left input-icon"></i>
                 <input 
@@ -281,8 +324,10 @@ function HostAdmin() {
             <div className="admin-settings-switches">
               <div className="admin-switch-row">
                 <div className="switch-info">
-                  <span class="switch-label">Mở cổng nhận Check-in</span>
-                  <span class="switch-desc">Cho phép khách mời quét QR và gửi profile</span>
+                  <span className="switch-label">{t.adminGateOpen}</span>
+                  <span className="switch-desc">
+                    {lang === 'vi' ? 'Cho phép khách mời quét QR và gửi profile' : 'Allow guests to scan QR and submit profiles'}
+                  </span>
                 </div>
                 <label className="privacy-toggle">
                   <input type="checkbox" checked={checkinOpen} onChange={handleToggleCheckin} />
@@ -293,29 +338,31 @@ function HostAdmin() {
 
               <div className="admin-switch-row">
                 <div className="switch-info">
-                  <span class="switch-label">Bắt buộc nhập Số điện thoại</span>
-                  <span class="switch-desc">Yêu cầu SĐT ở form check-in để liên lạc</span>
+                  <span className="switch-label">{t.adminRequirePhone}</span>
+                  <span className="switch-desc">
+                    {lang === 'vi' ? 'Yêu cầu SĐT ở form check-in để liên lạc' : 'Require phone numbers in the check-in form'}
+                  </span>
                 </div>
                 <label className="privacy-toggle">
                   <input type="checkbox" checked={requirePhone} onChange={handleTogglePhone} />
                   <span className="toggle-slider"></span>
-                  <span className="toggle-text"><i class="fa-solid fa-exclamation"></i></span>
+                  <span className="toggle-text"><i className="fa-solid fa-exclamation"></i></span>
                 </label>
               </div>
             </div>
 
             <div className="admin-data-actions">
-              <h4>Xuất báo cáo & Dữ liệu</h4>
+              <h4>{lang === 'vi' ? 'Xuất báo cáo & Dữ liệu' : 'Export Reports & Data'}</h4>
               <div className="data-buttons-grid">
                 <button onClick={exportToCSV} className="btn btn-secondary">
-                  <i className="fa-solid fa-file-csv"></i> Xuất danh sách (CSV)
+                  <i className="fa-solid fa-file-csv"></i> {t.adminBtnExport}
                 </button>
                 <button onClick={downloadQRCode} className="btn btn-outline">
-                  <i className="fa-solid fa-download"></i> Tải QR Code (PNG)
+                  <i className="fa-solid fa-download"></i> {t.adminBtnDownloadQR}
                 </button>
               </div>
               <button onClick={handleResetEvent} className="btn btn-outline btn-reset-danger">
-                <i className="fa-solid fa-trash-can"></i> Xóa toàn bộ khách check-in
+                <i className="fa-solid fa-trash-can"></i> {lang === 'vi' ? 'Xóa toàn bộ khách check-in' : 'Clear all checked-in guests'}
               </button>
             </div>
           </div>
@@ -323,9 +370,9 @@ function HostAdmin() {
           {/* Right: Moderation List */}
           <div className="host-card admin-moderation glass">
             <div className="section-title-bar">
-              <h3><i className="fa-solid fa-users-gear"></i> Kiểm duyệt thành viên</h3>
+              <h3><i className="fa-solid fa-users-gear"></i> {lang === 'vi' ? 'Kiểm duyệt thành viên' : 'Moderate Members'}</h3>
               <div className="stat-badge">
-                <span>{filteredList.length}</span> đã check-in
+                <span>{filteredList.length}</span> {lang === 'vi' ? 'đã check-in' : 'checked-in'}
               </div>
             </div>
 
@@ -333,7 +380,7 @@ function HostAdmin() {
               <i className="fa-solid fa-magnifying-glass"></i>
               <input 
                 type="text" 
-                placeholder="Tìm tên hoặc vai trò để xử lý nhanh..." 
+                placeholder={t.adminSearchPlaceholder} 
                 value={searchVal}
                 onChange={(e) => setSearchVal(e.target.value)}
               />
@@ -343,10 +390,10 @@ function HostAdmin() {
               <table className="moderation-table">
                 <thead>
                   <tr>
-                    <th>Thành viên</th>
-                    <th>Vai trò</th>
-                    <th>Thời gian</th>
-                    <th style={{ textAlign: 'right' }}>Hành động</th>
+                    <th>{lang === 'vi' ? 'Thành viên' : 'Member'}</th>
+                    <th>{lang === 'vi' ? 'Vai trò' : 'Role'}</th>
+                    <th>{lang === 'vi' ? 'Thời gian' : 'Time'}</th>
+                    <th style={{ textAlign: 'right' }}>{lang === 'vi' ? 'Hành động' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -354,7 +401,7 @@ function HostAdmin() {
                     filteredList.map((guest) => {
                       const av = avatarPresets[guest.avatar] || avatarPresets['avatar-1'];
                       const timeStr = guest.created_at 
-                        ? new Date(guest.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                        ? new Date(guest.created_at).toLocaleTimeString(lang === 'vi' ? 'vi-VN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
                         : '14:00';
                       return (
                         <tr key={guest.id}>
@@ -374,7 +421,7 @@ function HostAdmin() {
                           </td>
                           <td style={{ textAlign: 'right' }}>
                             <button onClick={() => handleKick(guest.id, guest.name)} className="btn-kick">
-                              <i className="fa-solid fa-user-xmark"></i> Xóa
+                              <i className="fa-solid fa-user-xmark"></i> {t.adminTableKick}
                             </button>
                           </td>
                         </tr>
@@ -384,7 +431,7 @@ function HostAdmin() {
                     <tr>
                       <td colSpan="4" style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
                         <i className="fa-solid fa-circle-info" style={{ fontSize: '20px', display: 'block', marginBottom: '8px' }}></i>
-                        Chưa có thành viên nào check-in hoặc khớp với tìm kiếm.
+                        {lang === 'vi' ? 'Chưa có thành viên nào check-in hoặc khớp với tìm kiếm.' : 'No members checked in yet or matched your search.'}
                       </td>
                     </tr>
                   )}

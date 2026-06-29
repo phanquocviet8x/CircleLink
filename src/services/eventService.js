@@ -60,7 +60,7 @@ export const eventService = {
     /**
      * Create a new event
      */
-    async createEvent(slug, title, description) {
+    async createEvent(slug, title, description, hostEmail = null) {
         if (isDemoMode) {
             const events = getLocalEvents();
             if (events[slug]) {
@@ -71,6 +71,7 @@ export const eventService = {
                 slug,
                 title,
                 description,
+                host_email: hostEmail,
                 is_checkin_open: true,
                 require_phone: false,
                 created_at: new Date().toISOString()
@@ -81,7 +82,7 @@ export const eventService = {
         } else {
             const { data, error } = await supabase
                 .from('events')
-                .insert([{ slug, title, description }])
+                .insert([{ slug, title, description, host_email: hostEmail }])
                 .select()
                 .single();
             return { data, error };

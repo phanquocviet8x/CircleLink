@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.events (
   slug TEXT UNIQUE NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
+  host_email TEXT, -- Stores the creator email address
   host_id UUID, -- Optional: references auth.users(id) if authentication is set up
   is_checkin_open BOOLEAN DEFAULT true,
   require_phone BOOLEAN DEFAULT false,

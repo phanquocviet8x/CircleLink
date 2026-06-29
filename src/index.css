@@ -1913,3 +1913,925 @@ form {
     color: var(--text-secondary);
     line-height: 1.5;
 }
+
+/* ==================== PREMIUM LOGO SVG & ANIMATIONS ==================== */
+.circlelink-svg {
+    display: block;
+    overflow: visible;
+}
+
+/* Variant 1: Orbital Connections */
+.svg-variant-1.animated .orbit-ring-1 {
+    transform-origin: 50px 50px;
+    animation: rotate-clockwise 25s linear infinite;
+}
+.svg-variant-1.animated .orbit-node-1 {
+    transform-origin: 50px 50px;
+    animation: rotate-clockwise 15s linear infinite;
+}
+.svg-variant-1.animated .orbit-node-2 {
+    transform-origin: 50px 50px;
+    animation: rotate-counter-clockwise 10s linear infinite;
+}
+.svg-variant-1.animated .orbit-node-3 {
+    transform-origin: 50px 50px;
+    animation: rotate-clockwise 8s linear infinite;
+}
+
+/* Variant 2: Infinite Unity */
+.svg-variant-2.animated .infinity-path {
+    stroke-dasharray: 240;
+    stroke-dashoffset: 0;
+    animation: draw-infinity-flow 6s linear infinite, glow-pulse 3s ease-in-out infinite alternate;
+}
+.svg-variant-2.animated .core-node {
+    animation: core-pulse 2s ease-in-out infinite;
+}
+
+/* Variant 3: Synergic Triquetra */
+.svg-variant-3.animated .triquetra-path {
+    transform-origin: 50px 53px;
+    animation: rotate-clockwise 20s linear infinite, glow-pulse 4s ease-in-out infinite alternate;
+}
+.svg-variant-3.animated .triquetra-core {
+    transform-origin: 50px 65px;
+    animation: pulse-triquetra-core 3s ease-in-out infinite alternate;
+}
+
+/* Variant 4: Stellar Mesh */
+.svg-variant-4.animated .outer-mesh-ring {
+    animation: glow-pulse 3s ease-in-out infinite alternate;
+}
+.svg-variant-4.animated .node-center {
+    animation: core-pulse 1.5s ease-in-out infinite;
+}
+.svg-variant-4.animated .node-top,
+.svg-variant-4.animated .node-bottom {
+    animation: node-breathing-y 2.5s ease-in-out infinite alternate;
+}
+.svg-variant-4.animated .node-left,
+.svg-variant-4.animated .node-right {
+    animation: node-breathing-x 2.5s ease-in-out infinite alternate;
+}
+
+/* KEYFRAMES FOR LOGO ANIMATIONS */
+@keyframes rotate-clockwise {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+@keyframes rotate-counter-clockwise {
+    0% { transform: rotate(360deg); }
+    100% { transform: rotate(0deg); }
+}
+@keyframes draw-infinity-flow {
+    0% { stroke-dashoffset: 480; }
+    100% { stroke-dashoffset: 0; }
+}
+@keyframes glow-pulse {
+    0% { filter: drop-shadow(0 0 2px rgba(139, 92, 246, 0.4)) brightness(0.9); }
+    100% { filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.8)) brightness(1.2); }
+}
+@keyframes core-pulse {
+    0%, 100% { transform: scale(1) translate(0, 0); opacity: 0.8; transform-origin: 50px 50px; }
+    50% { transform: scale(1.3) translate(0, 0); opacity: 1; transform-origin: 50px 50px; filter: drop-shadow(0 0 6px #fff); }
+}
+@keyframes pulse-triquetra-core {
+    0% { transform: scale(0.95); opacity: 0.7; }
+    100% { transform: scale(1.05); opacity: 0.95; filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5)); }
+}
+@keyframes node-breathing-y {
+    0% { transform: translateY(-2px); }
+    100% { transform: translateY(2px); }
+}
+@keyframes node-breathing-x {
+    0% { transform: translateX(-2px); }
+    100% { transform: translateX(2px); }
+}
+
+/* ==================== LANDING PAGE HERO & SHOWCASE ==================== */
+html {
+    scroll-behavior: smooth;
+}
+
+.hero-logo-large {
+    margin-bottom: 24px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 30px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 40px rgba(124, 58, 237, 0.05);
+    position: relative;
+}
+
+.hero-logo-large::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: 0 0 50px rgba(139, 92, 246, 0.15);
+    filter: blur(10px);
+    z-index: -1;
+}
+
+.hero-slogan-wrap {
+    margin-top: 15px;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--accent-violet);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    min-height: 28px;
+    transition: all 0.3s ease;
+    animation: slogan-fade 0.5s ease-out;
+}
+
+@keyframes slogan-fade {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Brand Configurator Dashboard */
+.brand-configurator-card {
+    max-width: 750px;
+    margin: 30px auto 40px;
+    padding: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.brand-configurator-card h4 {
+    font-family: var(--font-heading);
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-primary);
+}
+
+.configurator-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    text-align: left;
+}
+
+@media (max-width: 600px) {
+    .configurator-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.config-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.config-section label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.option-selector-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.brand-opt-btn {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.brand-opt-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: var(--text-primary);
+    transform: translateX(3px);
+}
+
+.brand-opt-btn.active {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: var(--accent-purple);
+    color: var(--text-primary);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.15);
+}
+
+.brand-opt-btn .opt-index {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.brand-opt-btn.active .opt-index {
+    background: var(--accent-purple);
+}
+
+.brand-opt-btn .opt-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.brand-opt-btn .opt-title {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.brand-opt-btn .opt-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+.brand-opt-btn.active .opt-desc {
+    color: var(--text-secondary);
+}
+
+.brand-actions-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.brand-concept-description {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-style: italic;
+    max-width: 70%;
+    text-align: left;
+}
+
+.btn-brand-save {
+    background: var(--grad-mint);
+    color: white;
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-brand-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* ==================== WORKFLOW DIAGRAM STEPS ==================== */
+.workflow-section {
+    margin: 60px auto 30px;
+    max-width: 900px;
+}
+
+.workflow-section h3 {
+    font-family: var(--font-heading);
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 30px;
+    color: var(--text-primary);
+}
+
+.workflow-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    position: relative;
+}
+
+@media (max-width: 800px) {
+    .workflow-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .workflow-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.workflow-card {
+    padding: 20px;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(26, 29, 41, 0.4);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    transition: all 0.3s ease;
+}
+
+.workflow-card:hover {
+    background: var(--bg-card-hover);
+    border-color: rgba(139, 92, 246, 0.2);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 20px -10px rgba(124, 58, 237, 0.2);
+}
+
+.workflow-step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--accent-violet);
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.workflow-card:hover .workflow-step-num {
+    background: var(--accent-purple);
+    color: white;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+}
+
+.workflow-card h5 {
+    font-family: var(--font-heading);
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.workflow-card p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.workflow-arrow {
+    position: absolute;
+    top: 50%;
+    right: -10px;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.15);
+    z-index: 2;
+}
+
+@media (max-width: 800px) {
+    .workflow-arrow {
+        display: none;
+    }
+}
+
+/* ==================== CTA HERO BUTTONS & GLASS CARDS ==================== */
+.cta-buttons-wrap {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 30px;
+    margin-bottom: 10px;
+}
+
+.btn-cta-try {
+    background: var(--grad-primary);
+    padding: 14px 32px;
+    font-size: 16px;
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.2);
+}
+
+.btn-cta-try:hover {
+    box-shadow: 0 0 30px rgba(124, 58, 237, 0.5);
+    transform: scale(1.03) translateY(-2px);
+}
+
+.btn-cta-learn {
+    padding: 14px 28px;
+    font-size: 16px;
+}
+
+/* Extra hover adjustments for visual layout */
+.home-actions-card {
+    transition: box-shadow 0.5s ease, border-color 0.5s ease;
+}
+.home-actions-card.highlighted-form {
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 35px rgba(139, 92, 246, 0.3), inset 0 0 20px rgba(139, 92, 246, 0.05);
+    animation: pulse-glow-border 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-glow-border {
+    0% { border-color: rgba(139, 92, 246, 0.3); }
+    100% { border-color: rgba(6, 182, 212, 0.6); }
+}
+
+/* ==================== ECHOLY STYLE - WARM STUDIO THEME OVERRIDES ==================== */
+.warm-theme {
+    --bg-darker: #fffdf9;      /* Eggshell background */
+    --bg-dark: #fffcf4;        /* Warm cream accent background */
+    --bg-card: rgba(255, 255, 255, 0.85); /* Semi-transparent white card */
+    --bg-card-hover: rgba(255, 255, 255, 0.95);
+    --border-color: rgba(59, 42, 30, 0.12); /* Delicate cocoa border */
+    --border-focus: #ff6b4a;   /* Tangerine Orange focus border */
+    
+    --text-primary: #3b2a1e;   /* Dark cocoa primary text */
+    --text-secondary: #5c4b3f; /* Soft cocoa secondary text */
+    --text-muted: #8c7a6e;     /* Muted grey-cocoa */
+    
+    /* Dynamic Theme Overrides */
+    --accent-purple: #ff6b4a;  /* Map purple accents to tangerine */
+    --accent-violet: #d9480f;  /* Terracotta dark orange */
+    --accent-mint: #2b8c6a;    /* Sage mint */
+    --accent-blue: #1c7ed6;
+    --accent-pink: #ec4899;
+    
+    --grad-primary: linear-gradient(135deg, #3b2a1e, #23160e); /* Deep cocoa primary button gradient */
+    --grad-glow: linear-gradient(135deg, #ff6b4a, #ff922b);     /* Tangerine-orange gradient */
+    --grad-mint: linear-gradient(135deg, #2d8c6b, #12b886);
+    
+    --shadow-sm: 0 2px 8px rgba(59, 42, 30, 0.04);
+    --shadow-md: 0 10px 30px rgba(59, 42, 30, 0.06);
+    --shadow-lg: 0 20px 50px rgba(59, 42, 30, 0.1);
+    --shadow-glow: 0 0 25px rgba(255, 107, 74, 0.18);
+    
+    min-height: 100vh;
+    background-color: var(--bg-darker);
+    color: var(--text-primary);
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Specific elements style overrides inside warm theme */
+.warm-theme .bg-blob {
+    opacity: 0.12; /* Keep blobs extremely subtle on light background */
+}
+.warm-theme .blob-1 {
+    background: #ffec99; /* Warm butter yellow */
+}
+.warm-theme .blob-2 {
+    background: #ffc9c9; /* Soft coral red */
+}
+.warm-theme .blob-3 {
+    background: #a9e34b; /* Light sage green */
+}
+
+/* Header style for sticky Warm Studio look */
+.warm-theme .app-header {
+    background: rgba(255, 253, 249, 0.88);
+    backdrop-filter: saturate(120%) blur(14px);
+    -webkit-backdrop-filter: saturate(120%) blur(14px);
+    border-bottom: 1px solid rgba(59, 42, 30, 0.08);
+}
+
+.warm-theme .logo-text span {
+    color: #ff6b4a; /* Orange highlight for CircleLink logo text */
+}
+
+.warm-theme .hero-title span {
+    background: linear-gradient(135deg, #ff6b4a, #ff922b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.warm-theme .hero-logo-large {
+    background: #fffcf6;
+    border-color: rgba(59, 42, 30, 0.06);
+    box-shadow: inset 0 0 45px rgba(255, 107, 74, 0.05);
+}
+.warm-theme .hero-logo-large::after {
+    box-shadow: 0 0 50px rgba(255, 107, 74, 0.12);
+}
+
+/* Glassmorphism Cards overrides */
+.warm-theme .glass {
+    background: #ffffff;
+    border: 1px solid rgba(59, 42, 30, 0.08);
+    box-shadow: var(--shadow-md);
+}
+
+/* Brand Configurator active buttons */
+.warm-theme .brand-opt-btn {
+    background: #fffdf9;
+    border: 1px solid rgba(59, 42, 30, 0.08);
+    color: var(--text-secondary);
+}
+.warm-theme .brand-opt-btn:hover {
+    background: #fffdf2;
+    border-color: rgba(59, 42, 30, 0.2);
+    color: var(--text-primary);
+}
+.warm-theme .brand-opt-btn.active {
+    background: #fff8f0;
+    border-color: #ff6b4a;
+    color: #ff6b4a;
+    box-shadow: 0 0 15px rgba(255, 107, 74, 0.08);
+}
+.warm-theme .brand-opt-btn .opt-index {
+    background: rgba(59, 42, 30, 0.05);
+    color: var(--text-primary);
+}
+.warm-theme .brand-opt-btn.active .opt-index {
+    background: #ff6b4a;
+    color: white;
+}
+
+/* Input boxes styling */
+.warm-theme .input-wrapper input {
+    background: #ffffff;
+    border: 1px solid rgba(59, 42, 30, 0.12);
+    color: #3b2a1e;
+}
+.warm-theme .input-wrapper input:focus {
+    background: #ffffff;
+    border-color: #ff6b4a;
+    box-shadow: 0 0 12px rgba(255, 107, 74, 0.15);
+}
+.warm-theme .input-icon {
+    color: #8c7a6e;
+}
+
+/* Feature cards */
+.warm-theme .feature-card {
+    background: #ffffff;
+    border: 1px solid rgba(59, 42, 30, 0.08);
+}
+.warm-theme .feature-card:hover {
+    background: #fffdf9;
+    border-color: rgba(255, 107, 74, 0.2);
+}
+.warm-theme .feature-icon {
+    background: rgba(255, 107, 74, 0.08);
+    color: #ff6b4a;
+}
+
+/* Steps workflow */
+.warm-theme .workflow-card {
+    background: #ffffff;
+    border: 1px solid rgba(59, 42, 30, 0.08);
+}
+.warm-theme .workflow-card:hover {
+    background: #fffdf9;
+    border-color: rgba(255, 107, 74, 0.2);
+    box-shadow: 0 10px 20px -10px rgba(255, 107, 74, 0.1);
+}
+.warm-theme .workflow-step-num {
+    background: rgba(59, 42, 30, 0.05);
+    border: 1px solid rgba(59, 42, 30, 0.08);
+    color: #ff6b4a;
+}
+.warm-theme .workflow-card:hover .workflow-step-num {
+    background: #ff6b4a;
+    color: white;
+}
+.warm-theme .workflow-arrow {
+    color: rgba(59, 42, 30, 0.15);
+}
+
+/* Buttons style overrides */
+.warm-theme .btn-primary {
+    background: #3b2a1e;
+    color: #fffdf9;
+    border: 1px solid #3b2a1e;
+}
+.warm-theme .btn-primary:hover:not(:disabled) {
+    background: #23160e;
+    border-color: #23160e;
+    box-shadow: 0 4px 15px rgba(59, 42, 30, 0.18);
+}
+.warm-theme .btn-outline {
+    background: transparent;
+    border: 1px solid rgba(59, 42, 30, 0.18);
+    color: #3b2a1e;
+}
+.warm-theme .btn-outline:hover:not(:disabled) {
+    background: rgba(59, 42, 30, 0.04);
+    border-color: rgba(59, 42, 30, 0.35);
+}
+.warm-theme .btn-brand-save {
+    background: #2b8c6a;
+}
+.warm-theme .btn-brand-save:hover {
+    box-shadow: 0 4px 12px rgba(43, 140, 106, 0.3);
+}
+
+/* Active Highlight creation form */
+.warm-theme .home-actions-card.highlighted-form {
+    border-color: rgba(255, 107, 74, 0.5);
+    box-shadow: 0 0 35px rgba(255, 107, 74, 0.18), inset 0 0 20px rgba(255, 107, 74, 0.02);
+    animation: warm-pulse-glow-border 2s ease-in-out infinite alternate;
+}
+
+@keyframes warm-pulse-glow-border {
+    0% { border-color: rgba(255, 107, 74, 0.3); }
+    100% { border-color: rgba(43, 140, 106, 0.6); }
+}
+
+/* Typography size adjustments for Warm Studio style */
+.warm-theme .hero-title {
+    font-size: 58px;
+    font-weight: 850;
+    line-height: 1.15;
+    letter-spacing: -1.5px;
+    margin-bottom: 20px;
+}
+@media (max-width: 768px) {
+    .warm-theme .hero-title {
+        font-size: 40px;
+        letter-spacing: -0.8px;
+    }
+}
+
+.warm-theme .hero-subtitle {
+    font-size: 18px;
+    line-height: 1.75;
+    color: var(--text-secondary);
+    max-width: 65ch;
+    margin: 15px auto 0;
+}
+
+.warm-theme .hero-slogan-wrap {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #ff6b4a;
+    margin-top: 15px;
+}
+@media (max-width: 768px) {
+    .warm-theme .hero-slogan-wrap {
+        font-size: 18px;
+    }
+}
+
+.warm-theme .feature-card h4 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+.warm-theme .feature-card p {
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.warm-theme .workflow-card h5 {
+    font-size: 16px;
+    font-weight: 700;
+}
+.warm-theme .workflow-card p {
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+
+.warm-theme .form-group-home label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.warm-theme .input-wrapper input {
+    font-size: 16px;
+    padding: 14px 16px 14px 44px;
+}
+.warm-theme .input-icon {
+    font-size: 16px;
+    left: 16px;
+}
+
+/* Language Switcher pill button */
+.warm-theme .lang-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(59, 42, 30, 0.05);
+    border: 1px solid rgba(59, 42, 30, 0.08);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.warm-theme .lang-toggle-btn:hover {
+    background: rgba(59, 42, 30, 0.1);
+    border-color: rgba(59, 42, 30, 0.2);
+}
+
+/* Accordion FAQ Section style */
+.warm-theme .faq-section {
+    margin: 80px auto 40px;
+    max-width: 800px;
+    text-align: left;
+}
+
+.warm-theme .faq-section h3 {
+    font-family: var(--font-heading);
+    font-size: 32px;
+    font-weight: 850;
+    margin-bottom: 30px;
+    text-align: center;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+
+.warm-theme .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.warm-theme .faq-item {
+    border: 1px solid rgba(59, 42, 30, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #ffffff;
+}
+
+.warm-theme .faq-item.active {
+    border-color: rgba(255, 107, 74, 0.3);
+    box-shadow: var(--shadow-md);
+}
+
+.warm-theme .faq-question {
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 20px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    outline: none;
+}
+
+.warm-theme .faq-question:hover {
+    background-color: rgba(59, 42, 30, 0.02);
+}
+
+.warm-theme .faq-question i {
+    color: #ff6b4a;
+    transition: transform 0.3s ease;
+    font-size: 14px;
+}
+
+.warm-theme .faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0, 1, 0, 1), padding 0.3s ease;
+    padding: 0 24px;
+}
+
+.warm-theme .faq-item.active .faq-answer {
+    max-height: 500px; /* high limit to accommodate content */
+    padding: 0 24px 20px;
+    transition: max-height 0.3s ease-in, padding 0.3s ease;
+}
+
+.warm-theme .faq-answer p {
+    font-size: 14.5px;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    margin: 0;
+}
+
+/* Login Modal Overlay */
+.warm-theme .login-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(59, 42, 30, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fade-in 0.25s ease-out;
+}
+
+.warm-theme .login-modal {
+    background: #ffffff;
+    border: 1px solid rgba(59, 42, 30, 0.12);
+    border-radius: 24px;
+    width: 100%;
+    max-width: 480px;
+    padding: 32px;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    animation: scale-up 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-align: left;
+}
+
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scale-up {
+    from { transform: scale(0.9); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.warm-theme .login-modal h3 {
+    font-family: var(--font-heading);
+    font-size: 24px;
+    font-weight: 850;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+
+.warm-theme .login-modal p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 24px;
+}
+
+.warm-theme .login-modal .btn-close-modal {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    background: transparent;
+    border: none;
+    font-size: 18px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s;
+    outline: none;
+}
+
+.warm-theme .login-modal .btn-close-modal:hover {
+    color: var(--text-primary);
+}
+
+.warm-theme .host-session-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(59, 42, 30, 0.05);
+    border: 1px solid rgba(59, 42, 30, 0.08);
+    border-radius: 20px;
+    padding: 8px 14px;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.warm-theme .host-session-badge button {
+    background: transparent;
+    border: none;
+    color: #ff6b4a;
+    font-weight: 800;
+    cursor: pointer;
+    margin-left: 4px;
+    font-size: 12px;
+    outline: none;
+}
+
+.warm-theme .host-session-badge button:hover {
+    text-decoration: underline;
+}
+
+
+
+

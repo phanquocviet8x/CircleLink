@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { eventService } from '../services/eventService';
+import Logo from '../components/Logo';
+import { getTranslations, getLanguage, setLanguage } from '../services/translations';
 
 const avatarPresets = {
   'avatar-1': { icon: 'fa-user-astronaut', style: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' },
@@ -17,43 +19,52 @@ function EventDirectory() {
   const [eventData, setEventData] = useState(null);
   const [attendeesList, setAttendeesList] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Multilingual State
+  const [lang, setLang] = useState(getLanguage());
 
-  // Filters state
+  // Search & Filters State
   const [searchVal, setSearchVal] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [myCircleFilterActive, setMyCircleFilterActive] = useState(false);
-
-  // Bookmarks (persisted per event in localStorage)
   const [bookmarkedIds, setBookmarkedIds] = useState(new Set());
 
-  // Modal details popup
-  const [selectedGuest, setSelectedGuest] = useState(null);
+  // Modal State
   const [modalOpen, setModalOpen] = useState(false);
+  const [selectedGuest, setSelectedGuest] = useState(null);
+
+  // Toast State
   const [toastMsg, setToastMsg] = useState('');
   const [toastType, setToastType] = useState('success');
 
-  const showToast = (msg, type = 'success') => {
-    setToastMsg(msg);
-    setToastType(type);
-    setTimeout(() => setToastMsg(''), 3000);
+  const t = getTranslations(lang);
+
+  const handleLangToggle = () => {
+    const newLang = lang === 'vi' ? 'en' : 'vi';
+    setLanguage(newLang);
+    setLang(newLang);
   };
 
   useEffect(() => {
-    async function loadEventAndAttendees() {
+    // Load local bookmarks from localStorage
+    try {
+      const saved = localStorage.getItem(`circlelink_bookmark_${slug}`);
+      if (saved) {
+        setBookmarkedIds(new Set(JSON.parse(saved)));
+      }
+    } catch (_) {}
+  }, [slug]);
+
+  useEffect(() => {
+    async function loadEventData() {
       setLoading(true);
       const { data: event, error: eventErr } = await eventService.getEvent(slug);
       if (eventErr || !event) {
-        alert("Sự kiện không tồn tại!");
+        alert(lang === 'vi' ? "Sự kiện không tồn tại!" : "Event not found!");
         navigate('/');
         return;
       }
       setEventData(event);
-
-      // Load bookmarks for this event slug
-      const savedBookmarks = localStorage.getItem(`circlelink_bookmarks_${slug}`);
-      if (savedBookmarks) {
-        setBookmarkedIds(new Set(JSON.parse(savedBookmarks)));
-      }
 
       const { data: list, error: listErr } = await eventService.getAttendees(event.id);
       if (!listErr && list) {
@@ -61,93 +72,35 @@ function EventDirectory() {
       }
       setLoading(false);
     }
-    loadEventAndAttendees();
-  }, [slug, navigate]);
+    loadEventData();
+  }, [slug, navigate, lang]);
 
-  // Subscribe to realtime updates
-  useEffect(() => {
-    if (!eventData) return;
-
-    const unsubscribe = eventService.subscribeToAttendees(
-      eventData.id,
-      (newAttendee) => {
-        setAttendeesList(prev => {
-          if (prev.some(a => a.id === newAttendee.id)) return prev;
-          return [newAttendee, ...prev];
-        });
-      },
-      (deletedId) => {
-        setAttendeesList(prev => prev.filter(a => a.id !== deletedId));
-        // Remove from local bookmarks too if deleted
-        setBookmarkedIds(prev => {
-          if (prev.has(deletedId)) {
-            const next = new Set(prev);
-            next.delete(deletedId);
-            localStorage.setItem(`circlelink_bookmarks_${slug}`, JSON.stringify(Array.from(next)));
-            return next;
-          }
-          return prev;
-        });
-      },
-      () => {
-        setAttendeesList([]);
-      },
-      (updatedEvent) => {
-        setEventData(updatedEvent);
-      }
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [eventData, slug]);
+  const showToast = (msg, type = 'success') => {
+    setToastMsg(msg);
+    setToastType(type);
+    setTimeout(() => setToastMsg(''), 3000);
+  };
 
   const toggleBookmark = (id, name) => {
-    setBookmarkedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-        showToast(`💔 Đã xóa ${name} khỏi Vòng Tròn.`, 'heart');
-      } else {
-        next.add(id);
-        showToast(`❤️ Đã thêm ${name} vào Vòng Tròn của bạn!`, 'heart');
-      }
-      localStorage.setItem(`circlelink_bookmarks_${slug}`, JSON.stringify(Array.from(next)));
-      return next;
-    });
+    const next = new Set(bookmarkedIds);
+    if (next.has(id)) {
+      next.delete(id);
+      showToast(lang === 'vi' ? `Đã xóa ${name} khỏi Circle` : `Removed ${name} from Circle`, 'info');
+    } else {
+      next.add(id);
+      showToast(lang === 'vi' ? `Đã thêm ${name} vào Circle` : `Added ${name} to Circle`, 'success');
+    }
+    setBookmarkedIds(next);
+    try {
+      localStorage.setItem(`circlelink_bookmark_${slug}`, JSON.stringify(Array.from(next)));
+    } catch (_) {}
   };
 
   const downloadVCard = (guest) => {
-    const sharedPhone = guest.privacy?.phone ? guest.contacts?.phone : '';
-    const sharedEmail = guest.privacy?.email ? guest.contacts?.email : '';
-    const sharedFb = guest.privacy?.facebook ? guest.contacts?.facebook : '';
-    const sharedIn = guest.privacy?.linkedin ? guest.contacts?.linkedin : '';
-    const sharedTg = guest.privacy?.telegram ? guest.contacts?.telegram : '';
-
-    const notes = [
-      `Bio: ${guest.bio}`,
-      `Looking for: ${guest.looking}`,
-      `Can help with: ${guest.help}`,
-      sharedTg ? `Telegram: ${sharedTg}` : ''
-    ].filter(Boolean).join(' \\n ');
-
-    let vcard = 'BEGIN:VCARD\r\n';
-    vcard += 'VERSION:3.0\r\n';
-    vcard += `FN:${guest.name}\r\n`;
-    vcard += `ORG:CircleLink - ${guest.role}\r\n`;
-    vcard += `TITLE:${guest.role}\r\n`;
-    vcard += `NOTE:${notes}\r\n`;
-
-    if (sharedPhone) vcard += `TEL;TYPE=CELL,VOICE:${sharedPhone}\r\n`;
-    if (sharedEmail) vcard += `EMAIL;TYPE=PREF,INTERNET:${sharedEmail}\r\n`;
-    if (sharedFb) vcard += `URL;TYPE=Facebook:${sharedFb}\r\n`;
-    if (sharedIn) vcard += `URL;TYPE=LinkedIn:${sharedIn}\r\n`;
-
-    vcard += 'END:VCARD';
-
-    const blob = new Blob([vcard], { type: 'text/vcard;charset=utf-8;' });
-    const filename = `${guest.name.replace(/\s+/g, '_')}_contact.vcf`;
-
+    const vCardData = buildVCardString(guest);
+    const blob = new Blob([vCardData], { type: 'text/vcard;charset=utf-8;' });
+    const filename = `${guest.name.replace(/\s+/g, '_')}.vcf`;
+    
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -156,47 +109,53 @@ function EventDirectory() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    showToast(t.dirExportSuccess, 'success');
+  };
 
-    showToast(`💾 Đã tải file vCard danh bạ của ${guest.name}.`, 'success');
+  const buildVCardString = (guest) => {
+    const lines = [
+      'BEGIN:VCARD',
+      'VERSION:3.0',
+      `FN:${guest.name}`,
+      `ORG:CircleLink - ${eventData?.title || 'Event'}`,
+      `TITLE:${guest.role}`,
+      `NOTE:Bio: ${guest.bio} | Seek: ${guest.looking} | Support: ${guest.help}`
+    ];
+
+    if (guest.contacts?.phone && guest.privacy?.phone) {
+      lines.push(`TEL;TYPE=CELL:${guest.contacts.phone}`);
+    }
+    if (guest.contacts?.email && guest.privacy?.email) {
+      lines.push(`EMAIL;TYPE=INTERNET:${guest.contacts.email}`);
+    }
+    
+    // Social Links in note or URL fields if public
+    const socials = [];
+    if (guest.contacts?.telegram && guest.privacy?.telegram) socials.push(`Telegram: @${guest.contacts.telegram}`);
+    if (guest.contacts?.facebook && guest.privacy?.facebook) socials.push(`Facebook: ${guest.contacts.facebook}`);
+    if (guest.contacts?.linkedin && guest.privacy?.linkedin) socials.push(`LinkedIn: ${guest.contacts.linkedin}`);
+    if (guest.contacts?.instagram && guest.privacy?.instagram) socials.push(`Instagram: ${guest.contacts.instagram}`);
+    
+    if (socials.length > 0) {
+      lines.push(`NOTE;CHARSET=UTF-8:Bio: ${guest.bio} | Icebreakers: [Seek: ${guest.looking} | Support: ${guest.help}] | Socials: ${socials.join(', ')}`);
+    }
+
+    lines.push('END:VCARD');
+    return lines.join('\r\n');
   };
 
   const downloadBulkVCards = () => {
-    if (filteredAttendees.length === 0) return;
+    const targetList = myCircleFilterActive 
+      ? filteredAttendees.filter(g => bookmarkedIds.has(g.id))
+      : filteredAttendees;
 
-    let combinedVCard = '';
-    filteredAttendees.forEach((guest) => {
-      const sharedPhone = guest.privacy?.phone ? guest.contacts?.phone : '';
-      const sharedEmail = guest.privacy?.email ? guest.contacts?.email : '';
-      const sharedFb = guest.privacy?.facebook ? guest.contacts?.facebook : '';
-      const sharedIn = guest.privacy?.linkedin ? guest.contacts?.linkedin : '';
-      const sharedTg = guest.privacy?.telegram ? guest.contacts?.telegram : '';
+    if (targetList.length === 0) return;
 
-      const notes = [
-        `Bio: ${guest.bio}`,
-        `Looking for: ${guest.looking}`,
-        `Can help with: ${guest.help}`,
-        sharedTg ? `Telegram: ${sharedTg}` : ''
-      ].filter(Boolean).join(' \\n ');
-
-      combinedVCard += 'BEGIN:VCARD\r\n';
-      combinedVCard += 'VERSION:3.0\r\n';
-      combinedVCard += `FN:${guest.name}\r\n`;
-      combinedVCard += `ORG:CircleLink - ${guest.role}\r\n`;
-      combinedVCard += `TITLE:${guest.role}\r\n`;
-      combinedVCard += `NOTE:${notes}\r\n`;
-
-      if (sharedPhone) combinedVCard += `TEL;TYPE=CELL,VOICE:${sharedPhone}\r\n`;
-      if (sharedEmail) combinedVCard += `EMAIL;TYPE=PREF,INTERNET:${sharedEmail}\r\n`;
-      if (sharedFb) combinedVCard += `URL;TYPE=Facebook:${sharedFb}\r\n`;
-      if (sharedIn) combinedVCard += `URL;TYPE=LinkedIn:${sharedIn}\r\n`;
-
-      combinedVCard += 'END:VCARD\r\n';
-    });
-
-    const blob = new Blob([combinedVCard], { type: 'text/vcard;charset=utf-8;' });
-    const typeLabel = myCircleFilterActive ? 'Circle' : 'All';
-    const filename = `CircleLink_${slug}_${typeLabel}_${filteredAttendees.length}.vcf`;
-
+    const allVCardString = targetList.map(g => buildVCardString(g)).join('\r\n');
+    const blob = new Blob([allVCardString], { type: 'text/vcard;charset=utf-8;' });
+    const filename = `circlelink_contacts_${slug}_${Date.now()}.vcf`;
+    
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -206,7 +165,7 @@ function EventDirectory() {
     link.click();
     document.body.removeChild(link);
 
-    showToast(`💾 Đã tải bộ danh bạ ${filteredAttendees.length} thành viên!`, 'success');
+    showToast(t.dirExportSuccess, 'success');
   };
 
   const openModal = (guest) => {
@@ -216,22 +175,21 @@ function EventDirectory() {
 
   const closeModal = () => {
     setModalOpen(false);
+    setSelectedGuest(null);
   };
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>
-        <h3><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '10px' }}></i> Đang mở sổ danh bạ...</h3>
-      </div>
-    );
-  }
-
-  // Client filter
+  // Perform filtration logic
   const filteredAttendees = attendeesList.filter(guest => {
-    if (roleFilter !== 'all' && guest.role !== roleFilter) return false;
-    if (myCircleFilterActive && !bookmarkedIds.has(guest.id)) return false;
-
-    if (searchVal) {
+    // 1. My Circle Filter
+    if (myCircleFilterActive && !bookmarkedIds.has(guest.id)) {
+      return false;
+    }
+    // 2. Role Filter
+    if (roleFilter !== 'all' && guest.role !== roleFilter) {
+      return false;
+    }
+    // 3. Search Query Filter
+    if (searchVal.trim()) {
       const s = searchVal.toLowerCase();
       return (
         guest.name.toLowerCase().includes(s) ||
@@ -245,20 +203,27 @@ function EventDirectory() {
   });
 
   return (
-    <div className="dark-mode">
+    <div className="warm-theme">
+      {/* Background blobs */}
       <div className="bg-blob blob-1"></div>
       <div className="bg-blob blob-2"></div>
       <div className="bg-blob blob-3"></div>
 
       <header className="app-header">
         <div className="header-container">
-          <Link to="/" className="logo">
-            <div className="logo-icon">L</div>
-            <span className="logo-text">Circle<span>Link</span></span>
+          <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+            <Logo variant={1} showText={true} size={30} />
           </Link>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {/* Language Switcher pill */}
+            <button className="lang-toggle-btn" onClick={handleLangToggle}>
+              <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
+              {lang === 'vi' ? 'EN' : 'VI'}
+            </button>
+
             <Link to={`/checkin/${slug}`} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}>
-              <i className="fa-solid fa-user-plus"></i> Check-in Form
+              <i className="fa-solid fa-user-plus"></i> {t.dirBtnCheckinForm}
             </Link>
           </div>
         </div>
@@ -272,7 +237,7 @@ function EventDirectory() {
             <i className="fa-solid fa-magnifying-glass search-icon"></i>
             <input 
               type="text" 
-              placeholder="Tìm kiếm theo tên, bio, vai trò, icebreaker..."
+              placeholder={t.dirSearchPlaceholder}
               value={searchVal}
               onChange={(e) => setSearchVal(e.target.value)}
             />
@@ -284,13 +249,12 @@ function EventDirectory() {
           </div>
 
           <div className="quick-suggestions">
-            <span style={{ color: 'var(--text-muted)' }}><i className="fa-solid fa-tags"></i> Gợi ý tìm kiếm:</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}><i className="fa-solid fa-tags"></i> {lang === 'vi' ? 'Gợi ý tìm kiếm:' : 'Suggestions:'}</span>
             {[
-              { label: 'Tìm Co-founder', query: 'co-founder' },
-              { label: 'Tìm Developer', query: 'developer' },
-              { label: 'Tìm Designer', query: 'designer' },
-              { label: 'Tìm Nhà đầu tư', query: 'investor' },
-              { label: 'Tìm Mentor', query: 'mentor' }
+              { label: lang === 'vi' ? 'Tìm Co-founder' : 'Find Co-founder', query: 'co-founder' },
+              { label: lang === 'vi' ? 'Tìm Developer' : 'Find Developer', query: 'developer' },
+              { label: lang === 'vi' ? 'Tìm Designer' : 'Find Designer', query: 'designer' },
+              { label: lang === 'vi' ? 'Tìm Nhà đầu tư' : 'Find Investor', query: 'investor' }
             ].map((item) => (
               <button 
                 key={item.label}
@@ -310,7 +274,7 @@ function EventDirectory() {
                   className={`filter-chip ${roleFilter === r ? 'active' : ''}`}
                   onClick={() => setRoleFilter(r)}
                 >
-                  {r === 'all' ? 'Tất cả' : r}
+                  {r === 'all' ? t.dirFilterAll : r}
                 </button>
               ))}
             </div>
@@ -321,7 +285,7 @@ function EventDirectory() {
                 onClick={() => setMyCircleFilterActive(!myCircleFilterActive)}
               >
                 <i className="fa-solid fa-heart"></i>
-                <span>Vòng Tròn Của Tôi</span>
+                <span>{lang === 'vi' ? 'Vòng Tròn Của Tôi' : 'My Circle'}</span>
               </button>
 
               <button 
@@ -344,7 +308,7 @@ function EventDirectory() {
                 }}
               >
                 <i className="fa-solid fa-file-arrow-down"></i>
-                <span>Xuất {myCircleFilterActive ? 'Circle' : 'Tất cả'} ({filteredAttendees.length})</span>
+                <span>{lang === 'vi' ? 'Xuất vCard' : 'Export vCard'} ({filteredAttendees.length})</span>
               </button>
             </div>
           </div>
@@ -394,11 +358,11 @@ function EventDirectory() {
 
                   <div className="card-icebreakers">
                     <div className="card-icebreaker-item">
-                      <span className="lbl">Tìm:</span>
+                      <span className="lbl">{t.dirCardLooking}:</span>
                       <span className="val" title={guest.looking}>{guest.looking}</span>
                     </div>
                     <div className="card-icebreaker-item">
-                      <span className="lbl">Giúp:</span>
+                      <span className="lbl">{t.dirCardHelp}:</span>
                       <span className="val" title={guest.help}>{guest.help}</span>
                     </div>
                   </div>
@@ -410,7 +374,7 @@ function EventDirectory() {
                           <i key={c.key} className={`fa-solid ${c.icon} active`} title={`${c.key.toUpperCase()} Shared`}></i>
                         ))
                       ) : (
-                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Không công khai</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{lang === 'vi' ? 'Không công khai' : 'Private'}</span>
                       )}
                     </div>
                     <button 
@@ -429,8 +393,8 @@ function EventDirectory() {
           ) : (
             <div className="empty-directory" style={{ gridColumn: 'span 4' }}>
               <i className="fa-solid fa-address-book"></i>
-              <h3>Không tìm thấy thành viên nào</h3>
-              <p>Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để tìm cộng sự.</p>
+              <h3>{t.dirNoResults}</h3>
+              <p>{lang === 'vi' ? 'Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm để tìm cộng sự.' : 'Try changing filters or search keywords to find partners.'}</p>
             </div>
           )}
         </div>
@@ -442,7 +406,7 @@ function EventDirectory() {
         const av = avatarPresets[selectedGuest.avatar] || avatarPresets['avatar-1'];
         const isBookmarked = bookmarkedIds.has(selectedGuest.id);
         const contactDefs = [
-          { key: 'phone', title: 'Điện thoại/Zalo', icon: 'fa-phone', class: 'phone-link', prefix: 'tel:' },
+          { key: 'phone', title: lang === 'vi' ? 'Điện thoại/Zalo' : 'Phone/Zalo', icon: 'fa-phone', class: 'phone-link', prefix: 'tel:' },
           { key: 'email', title: 'Email', icon: 'fa-envelope', class: 'email-link', prefix: 'mailto:' },
           { key: 'telegram', title: 'Telegram', icon: 'fa-telegram', class: 'tg-link', prefix: 'https://t.me/' },
           { key: 'facebook', title: 'Facebook', icon: 'fa-facebook', class: 'fb-link', prefix: '' },
@@ -470,17 +434,17 @@ function EventDirectory() {
               <div className="modal-body">
                 <div className="modal-icebreakers">
                   <div className="icebreaker-box looking">
-                    <div className="title"><i className="fa-solid fa-magnifying-glass"></i> Đang tìm kiếm</div>
+                    <div className="title"><i className="fa-solid fa-magnifying-glass"></i> {t.checkinFormLooking}</div>
                     <div className="text">{selectedGuest.looking}</div>
                   </div>
                   <div className="icebreaker-box offering">
-                    <div className="title"><i className="fa-solid fa-circle-nodes"></i> Có thể giúp đỡ</div>
+                    <div className="title"><i className="fa-solid fa-circle-nodes"></i> {t.checkinFormHelp}</div>
                     <div className="text">{selectedGuest.help}</div>
                   </div>
                 </div>
 
                 <div className="modal-contacts">
-                  <h3>Thông tin liên hệ được chia sẻ</h3>
+                  <h3>{lang === 'vi' ? 'Thông tin liên hệ được chia sẻ' : 'Shared Contact Details'}</h3>
                   <div className="contact-links-grid">
                     {sharedContacts.length > 0 ? (
                       sharedContacts.map(def => {
@@ -503,7 +467,7 @@ function EventDirectory() {
                     ) : (
                       <div style={{ gridColumn: 'span 2', textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>
                         <i className="fa-solid fa-lock" style={{ fontSize: '20px', display: 'block', marginBottom: '8px' }}></i>
-                        Thành viên này chọn không chia sẻ công khai các kênh liên lạc.
+                        {lang === 'vi' ? 'Thành viên này chọn không chia sẻ công khai các kênh liên lạc.' : 'This member chose not to share any contact details publicly.'}
                       </div>
                     )}
                   </div>
@@ -517,10 +481,10 @@ function EventDirectory() {
                   onClick={() => toggleBookmark(selectedGuest.id, selectedGuest.name)}
                 >
                   <i className={isBookmarked ? 'fa-solid fa-heart' : 'fa-regular fa-heart'}></i>
-                  {isBookmarked ? ' Đã Lưu vào Circle' : ' Lưu vào Circle'}
+                  {isBookmarked ? (lang === 'vi' ? ' Đã Lưu vào Circle' : ' Saved to Circle') : (lang === 'vi' ? ' Lưu vào Circle' : ' Save to Circle')}
                 </button>
                 <button className="btn btn-primary" onClick={() => downloadVCard(selectedGuest)}>
-                  <i className="fa-solid fa-download"></i> vCard (Danh bạ)
+                  <i className="fa-solid fa-download"></i> {lang === 'vi' ? 'vCard (Danh bạ)' : 'vCard (Contacts)'}
                 </button>
               </div>
             </div>
