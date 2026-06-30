@@ -26,6 +26,7 @@ const translations = {
     loginDemoTip: "💡 Chế độ dùng thử: Nhập email bất kỳ và mã PIN là 123456 để vào hệ thống.",
     loginSuccess: "Đăng nhập thành công!",
     loginError: "Mã PIN xác thực không chính xác (Thử nhập 123456).",
+    loginWithGoogle: "Đăng nhập bằng Google",
     
     // LANDING PAGE (HOME)
     heroTitleVi: "Mở Rộng Vòng Tròn Kết Nối", // handled in JSX specifically
@@ -191,6 +192,7 @@ const translations = {
     loginDemoTip: "💡 Demo Mode: Enter any email and use 123456 as the verification PIN to enter.",
     loginSuccess: "Login successful!",
     loginError: "Incorrect verification PIN (Try entering 123456).",
+    loginWithGoogle: "Sign in with Google",
     
     // LANDING PAGE (HOME)
     heroTitleVi: "Expand Your Social Circle",

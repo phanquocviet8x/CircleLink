@@ -368,5 +368,31 @@ export const eventService = {
                 supabase.removeChannel(channel);
             };
         }
+    },
+
+    /**
+     * Sign in with Google OAuth
+     */
+    async signInWithGoogle() {
+        if (isDemoMode) {
+            alert("Auth is not available in Demo Mode. Set your Supabase keys to test Google OAuth.");
+            return { error: { message: "Demo mode" } };
+        }
+        return await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin
+            }
+        });
+    },
+
+    /**
+     * Sign out the current host
+     */
+    async signOut() {
+        if (!isDemoMode) {
+            await supabase.auth.signOut();
+        }
+        localStorage.removeItem('circlelink_host_email');
     }
 };
