@@ -117,6 +117,12 @@ const translations = {
     adminTablePhoneHidden: "SĐT (Riêng tư)",
     adminTableEmailHidden: "Email (Riêng tư)",
     adminConfirmKick: "Bạn có chắc chắn muốn xóa khách mời này khỏi sự kiện?",
+    planLabel: "Gói Dịch Vụ Sự Kiện",
+    planFree: "Miễn Phí (Giới hạn 50 người)",
+    planPremium: "Cao Cấp (Không giới hạn)",
+    planFreeBadge: "Bản Free",
+    planPremiumBadge: "Bản Premium",
+    planUpgradePrompt: "👑 Nâng cấp lên gói Premium để mở khóa không giới hạn check-in.",
 
     // GUEST CHECKIN VIEW
     checkinTitle: "Check-in sự kiện",
@@ -142,6 +148,8 @@ const translations = {
     checkinFormSubmit: "Gửi thông tin check-in",
     checkinSuccessConfetti: "Check-in thành công! Hãy lưu danh bạ sự kiện.",
     checkinSuccessRedirect: "Đang chuyển hướng sang danh bạ...",
+    checkinLimitTitle: "Đạt Giới Hạn Check-in ⚠️",
+    checkinLimitDesc: "Sự kiện này hiện đang chạy gói Miễn Phí và đã đạt giới hạn tối đa 50 lượt check-in. Vui lòng liên hệ Host hoặc Ban tổ chức để nâng cấp lên bản Premium nhằm tiếp tục check-in.",
 
     // EVENT DIRECTORY VIEW
     dirTitle: "Danh Bạ Sự Kiện",
@@ -274,6 +282,12 @@ const translations = {
     adminTablePhoneHidden: "Phone (Private)",
     adminTableEmailHidden: "Email (Private)",
     adminConfirmKick: "Are you sure you want to remove this guest from the event?",
+    planLabel: "Event Pricing Plan",
+    planFree: "Free (Limit 50 check-ins)",
+    planPremium: "Premium (Unlimited)",
+    planFreeBadge: "Free Tier",
+    planPremiumBadge: "Premium Tier",
+    planUpgradePrompt: "👑 Upgrade to Premium to unlock unlimited check-ins & export features.",
 
     // GUEST CHECKIN VIEW
     checkinTitle: "Event Check-in",
@@ -299,6 +313,8 @@ const translations = {
     checkinFormSubmit: "Submit check-in profile",
     checkinSuccessConfetti: "Check-in successful! Saving directory...",
     checkinSuccessRedirect: "Redirecting to directory...",
+    checkinLimitTitle: "Check-in Limit Reached ⚠️",
+    checkinLimitDesc: "This event is currently on the Free plan and has reached the limit of 50 check-in guests. Please contact the Host or organizer to upgrade to the Premium plan to enable more check-ins.",
 
     // EVENT DIRECTORY VIEW
     dirTitle: "Event Directory",

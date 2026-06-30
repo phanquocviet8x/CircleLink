@@ -92,6 +92,9 @@ function Home() {
     if (serviceError) {
       setError(serviceError.message || (lang === 'vi' ? 'Đã có lỗi xảy ra khi tạo sự kiện.' : 'An error occurred while creating the event.'));
     } else if (data) {
+      if (data.admin_token) {
+        localStorage.setItem(`circlelink_admin_token_${data.slug}`, data.admin_token);
+      }
       // Event created successfully! Route to Host Admin Dashboard
       navigate(`/event/${data.slug}/admin`);
     }

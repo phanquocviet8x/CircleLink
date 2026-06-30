@@ -21,24 +21,16 @@ function HostAdmin() {
   const [loading, setLoading] = useState(true);
   const [searchVal, setSearchVal] = useState('');
   
-  // Multilingual state
-  const [lang, setLang] = useState(getLanguage());
-  
-  // Local state for settings form
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
-  const [checkinOpen, setCheckinOpen] = useState(true);
-  const [requirePhone, setRequirePhone] = useState(false);
-  const [eventType, setEventType] = useState('offline');
-  const [meetingLink, setMeetingLink] = useState('');
+  // Admin Token Verification State
+  const [tokenInput, setTokenInput] = useState('');
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [checkingToken, setCheckingToken] = useState(true);
+  const [tokenError, setTokenError] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   const t = getTranslations(lang);
 
-  const handleLangToggle = () => {
-    const newLang = lang === 'vi' ? 'en' : 'vi';
-    setLanguage(newLang);
-    setLang(newLang);
-  };
+  const [lang, setLang] = useState(getLanguage());
 
   useEffect(() => {
     async function loadEventData() {
@@ -54,17 +46,49 @@ function HostAdmin() {
       setDesc(event.description || '');
       setCheckinOpen(event.is_checkin_open);
       setRequirePhone(event.require_phone);
+      setIsPremium(event.is_premium || false);
       setEventType(event.event_type || 'offline');
       setMeetingLink(event.meeting_link || '');
 
-      const { data: list, error: listErr } = await eventService.getAttendees(event.id);
-      if (!listErr && list) {
-        setAttendeesList(list);
+      const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
+      if (token) {
+        const { isValid } = await eventService.verifyAdminToken(slug, token);
+        if (isValid) {
+          setIsAuthorized(true);
+          const { data: list, error: listErr } = await eventService.getAttendees(event.id);
+          if (!listErr && list) {
+            setAttendeesList(list);
+          }
+        }
       }
+      setCheckingToken(false);
       setLoading(false);
     }
     loadEventData();
   }, [slug, navigate, lang]);
+
+  const handleVerifyToken = async (e) => {
+    e.preventDefault();
+    if (!tokenInput.trim() || !eventData) return;
+    setVerifying(true);
+    setTokenError('');
+    
+    const { isValid } = await eventService.verifyAdminToken(slug, tokenInput.trim());
+    setVerifying(false);
+    
+    if (isValid) {
+      localStorage.setItem(`circlelink_admin_token_${slug}`, tokenInput.trim());
+      setIsAuthorized(true);
+      setLoading(true);
+      const { data: list, error: listErr } = await eventService.getAttendees(eventData.id);
+      if (!listErr && list) {
+        setAttendeesList(list);
+      }
+      setLoading(false);
+    } else {
+      setTokenError(lang === 'vi' ? 'Token không hợp lệ, vui lòng thử lại!' : 'Invalid token, please try again!');
+    }
+  };
 
   // Subscribe to real-time check-ins to keep the admin list synced
   useEffect(() => {
@@ -131,11 +155,20 @@ function HostAdmin() {
     }
   };
 
+  const handleTogglePremium = async (val) => {
+    setIsPremium(val);
+    const { error } = await eventService.updateEvent(slug, { is_premium: val });
+    if (error) {
+      alert((lang === 'vi' ? "Lỗi cập nhật gói dịch vụ: " : "Error updating plan: ") + error.message);
+      setIsPremium(!val);
+    }
+  };
+
   const handleKick = async (id, name) => {
     const confirmKick = confirm(lang === 'vi' ? `Bạn có chắc chắn muốn xóa thành viên "${name}" khỏi sự kiện không?` : `Are you sure you want to remove "${name}" from this event?`);
     if (!confirmKick) return;
 
-    const { error } = await eventService.kickAttendee(id);
+    const { error } = await eventService.kickAttendee(id, slug);
     if (!error) {
       setAttendeesList(prev => prev.filter(a => a.id !== id));
     } else {
@@ -147,7 +180,7 @@ function HostAdmin() {
     const confirmReset = confirm(lang === 'vi' ? "CẢNH BÁO:\nBạn có chắc chắn muốn xóa sạch toàn bộ danh sách check-in?\nThao tác này sẽ dọn dẹp sạch cả bảng và không thể phục hồi." : "WARNING:\nAre you sure you want to clear the entire check-in list?\nThis action will completely wipe the database table and cannot be undone.");
     if (!confirmReset) return;
 
-    const { error } = await eventService.resetEvent(eventData.id);
+    const { error } = await eventService.resetEvent(eventData.id, slug);
     if (!error) {
       setAttendeesList([]);
     } else {
@@ -249,10 +282,80 @@ function HostAdmin() {
       });
   };
 
-  if (loading) {
+  const handleLangToggle = () => {
+    const newLang = lang === 'vi' ? 'en' : 'vi';
+    setLanguage(newLang);
+    setLang(newLang);
+  };
+
+  if (loading || checkingToken) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>
         <h3><i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '10px' }}></i> {lang === 'vi' ? 'Đang tải cấu hình Admin...' : 'Loading Admin config...'}</h3>
+      </div>
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <div className="warm-theme" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', padding: '20px' }}>
+        <div className="bg-blob blob-1"></div>
+        <div className="bg-blob blob-2"></div>
+        <div className="bg-blob blob-3"></div>
+        
+        <div className="glass host-card" style={{ maxWidth: '400px', width: '100%', padding: '30px', borderRadius: '16px', backdropFilter: 'blur(20px)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <Logo variant={1} showText={true} size={40} />
+            <h3 style={{ marginTop: '20px', color: 'var(--text-primary)' }}>
+              {lang === 'vi' ? 'Xác thực Quyền Admin' : 'Admin Authentication'}
+            </h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginTop: '8px' }}>
+              {lang === 'vi' 
+                ? `Vui lòng nhập Admin Token của sự kiện "${eventData?.title || slug}" để tiếp tục quản lý.`
+                : `Please enter the Admin Token for "${eventData?.title || slug}" to continue.`}
+            </p>
+          </div>
+
+          <form onSubmit={handleVerifyToken}>
+            <div className="admin-settings-group" style={{ marginBottom: '20px' }}>
+              <label>{lang === 'vi' ? 'Nhập Admin Token' : 'Enter Admin Token'}</label>
+              <div className="input-wrapper">
+                <i className="fa-solid fa-key input-icon"></i>
+                <input 
+                  type="password" 
+                  placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                  value={tokenInput} 
+                  onChange={(e) => setTokenInput(e.target.value)} 
+                  required
+                />
+              </div>
+              {tokenError && (
+                <p style={{ color: '#ff6b6b', fontSize: '12px', marginTop: '8px' }}>
+                  <i className="fa-solid fa-triangle-exclamation"></i> {tokenError}
+                </p>
+              )}
+            </div>
+
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '12px', justifyContent: 'center' }}
+              disabled={verifying}
+            >
+              {verifying ? (
+                <span><i className="fa-solid fa-spinner fa-spin"></i> {lang === 'vi' ? 'Đang xác minh...' : 'Verifying...'}</span>
+              ) : (
+                <span><i className="fa-solid fa-shield-halved"></i> {lang === 'vi' ? 'Xác minh Quyền Admin' : 'Verify Admin'}</span>
+              )}
+            </button>
+          </form>
+
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            <Link to="/" style={{ color: 'var(--accent-warm)', textDecoration: 'none', fontSize: '14px' }}>
+              <i className="fa-solid fa-arrow-left"></i> {lang === 'vi' ? 'Quay lại Trang chủ' : 'Back to Home'}
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -426,6 +529,80 @@ function HostAdmin() {
                 </div>
               </div>
             )}
+
+            <div className="admin-settings-group" style={{ borderTop: '1px solid rgba(59, 42, 30, 0.08)', paddingTop: '16px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>{t.planLabel}</span>
+                <span className={`plan-badge ${isPremium ? 'premium' : 'free'}`} style={{
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '10px',
+                  fontWeight: 'bold',
+                  textTransform: 'uppercase',
+                  background: isPremium ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'rgba(59, 42, 30, 0.1)',
+                  color: isPremium ? '#fff' : 'rgba(59, 42, 30, 0.6)'
+                }}>
+                  {isPremium ? t.planPremiumBadge : t.planFreeBadge}
+                </span>
+              </label>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                <button 
+                  type="button"
+                  className={`filter-chip ${!isPremium ? 'active' : ''}`}
+                  onClick={() => handleTogglePremium(false)}
+                  style={{ 
+                    flex: 1, 
+                    padding: '8px 12px', 
+                    fontSize: '12px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    borderRadius: '20px',
+                    transition: 'all 0.2s',
+                    border: !isPremium ? '1px solid rgba(59, 42, 30, 0.3)' : '1px solid rgba(59, 42, 30, 0.08)',
+                    background: !isPremium ? 'rgba(59, 42, 30, 0.12)' : 'rgba(59, 42, 30, 0.03)',
+                    color: !isPremium ? '#3b2a1e' : 'rgba(59, 42, 30, 0.6)',
+                    fontWeight: !isPremium ? 'bold' : 'normal'
+                  }}
+                >
+                  <i className="fa-solid fa-leaf"></i> 
+                  <span>{t.planFree}</span>
+                </button>
+                <button 
+                  type="button"
+                  className={`filter-chip ${isPremium ? 'active' : ''}`}
+                  onClick={() => handleTogglePremium(true)}
+                  style={{ 
+                    flex: 1, 
+                    padding: '8px 12px', 
+                    fontSize: '12px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    borderRadius: '20px',
+                    transition: 'all 0.2s',
+                    border: isPremium ? '1px solid #d97706' : '1px solid rgba(59, 42, 30, 0.08)',
+                    background: isPremium ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.15))' : 'rgba(59, 42, 30, 0.03)',
+                    color: isPremium ? '#d97706' : 'rgba(59, 42, 30, 0.6)',
+                    fontWeight: isPremium ? 'bold' : 'normal',
+                    boxShadow: isPremium ? '0 0 10px rgba(245, 158, 11, 0.1)' : 'none'
+                  }}
+                >
+                  <i className="fa-solid fa-crown"></i> 
+                  <span>{t.planPremium}</span>
+                </button>
+              </div>
+              {!isPremium && (
+                <p style={{ fontSize: '11px', color: '#d97706', marginTop: '6px', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                  <span>{t.planUpgradePrompt}</span>
+                </p>
+              )}
+            </div>
 
             <div className="admin-settings-switches">
               <div className="admin-switch-row">

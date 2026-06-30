@@ -24,6 +24,7 @@ function GuestCheckin() {
   // Multilingual State
   const [lang, setLang] = useState(getLanguage());
   const [checkedIn, setCheckedIn] = useState(false);
+  const [limitExceeded, setLimitExceeded] = useState(false);
 
   // Form Fields
   const [avatar, setAvatar] = useState('avatar-1');
@@ -68,10 +69,69 @@ function GuestCheckin() {
         return;
       }
       setEventData(event);
+
+      // Check current attendee count
+      const { data: attendees, error: attendeesErr } = await eventService.getAttendees(event.id);
+      if (!attendeesErr && attendees) {
+        if (!event.is_premium && attendees.length >= 2) {
+          setLimitExceeded(true);
+        } else {
+          setLimitExceeded(false);
+        }
+      }
+
       setLoading(false);
     }
     loadEvent();
   }, [slug, navigate, lang]);
+
+  // Subscribe to real-time updates for plan upgrades and check-in counts
+  useEffect(() => {
+    if (!eventData) return;
+
+    const unsubscribe = eventService.subscribeToAttendees(
+      eventData.id,
+      (_newAttendee) => {
+        if (!eventData.is_premium) {
+          eventService.getAttendees(eventData.id).then(({ data }) => {
+            if (data && data.length >= 2) {
+              setLimitExceeded(true);
+            }
+          });
+        }
+      },
+      (_deletedId) => {
+        if (!eventData.is_premium) {
+          eventService.getAttendees(eventData.id).then(({ data }) => {
+            if (data && data.length < 2) {
+              setLimitExceeded(false);
+            }
+          });
+        }
+      },
+      () => {
+        setLimitExceeded(false);
+      },
+      (updatedEvent) => {
+        setEventData(updatedEvent);
+        if (updatedEvent.is_premium) {
+          setLimitExceeded(false);
+        } else {
+          eventService.getAttendees(updatedEvent.id).then(({ data }) => {
+            if (data && data.length >= 2) {
+              setLimitExceeded(true);
+            } else {
+              setLimitExceeded(false);
+            }
+          });
+        }
+      }
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [eventData]);
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -100,51 +160,61 @@ function GuestCheckin() {
 
     setSubmitting(true);
 
-    const attendeeData = {
-      name: fullname.trim(),
-      role,
-      bio: bio.trim(),
-      avatar,
-      looking: looking.trim() || (lang === 'vi' ? 'Không chia sẻ cụ thể.' : 'Not specified.'),
-      help: help.trim() || (lang === 'vi' ? 'Không chia sẻ cụ thể.' : 'Not specified.'),
-      contacts: {
-        phone: phone.trim(),
-        email: email.trim(),
-        telegram: telegram.trim(),
-        facebook: facebook.trim(),
-        linkedin: linkedin.trim(),
-        instagram: instagram.trim()
-      },
-      privacy: {
-        phone: sharePhone,
-        email: shareEmail,
-        telegram: shareTelegram,
-        facebook: shareFacebook,
-        linkedin: shareLinkedin,
-        instagram: shareInstagram
+    try {
+      const attendeeData = {
+        name: fullname.trim(),
+        role,
+        bio: bio.trim(),
+        avatar,
+        looking: looking.trim() || (lang === 'vi' ? 'Không chia sẻ cụ thể.' : 'Not specified.'),
+        help: help.trim() || (lang === 'vi' ? 'Không chia sẻ cụ thể.' : 'Not specified.'),
+        contacts: {
+          phone: phone.trim(),
+          email: email.trim(),
+          telegram: telegram.trim(),
+          facebook: facebook.trim(),
+          linkedin: linkedin.trim(),
+          instagram: instagram.trim()
+        },
+        privacy: {
+          phone: sharePhone,
+          email: shareEmail,
+          telegram: shareTelegram,
+          facebook: shareFacebook,
+          linkedin: shareLinkedin,
+          instagram: shareInstagram
+        }
+      };
+
+      const { error } = await eventService.addAttendee(eventData.id, attendeeData);
+
+      if (error) {
+        if (error.message === 'LIMIT_EXCEEDED') {
+          setLimitExceeded(true);
+        } else {
+          alert((lang === 'vi' ? "Lỗi check-in: " : "Check-in error: ") + error.message);
+        }
+      } else {
+        // Trigger confetti explosion!
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+
+        // Save successful check-in timestamp for rate limit cooldown
+        try {
+          localStorage.setItem(`last_checkin_time_${slug}`, Date.now().toString());
+        } catch (_) {}
+
+        setCheckedIn(true);
+        showToast(t.checkinSuccessConfetti);
       }
-    };
-
-    const { error } = await eventService.addAttendee(eventData.id, attendeeData);
-    setSubmitting(false);
-
-    if (error) {
-      alert((lang === 'vi' ? "Lỗi check-in: " : "Check-in error: ") + error.message);
-    } else {
-      // Trigger confetti explosion!
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
-
-      // Save successful check-in timestamp for rate limit cooldown
-      try {
-        localStorage.setItem(`last_checkin_time_${slug}`, Date.now().toString());
-      } catch (_) {}
-
-      setCheckedIn(true);
-      showToast(t.checkinSuccessConfetti);
+    } catch (err) {
+      console.error("Checkin submit error:", err);
+      alert((lang === 'vi' ? "Có lỗi xảy ra khi gửi thông tin check-in: " : "An error occurred during check-in: ") + err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -186,6 +256,50 @@ function GuestCheckin() {
           <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: '800', marginBottom: '8px' }}>{t.checkinClosedTitle}</h2>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
             {lang === 'vi' ? 'Host đã đóng cổng đăng ký cho sự kiện:' : 'Host has closed registration for the event:'} <strong>{eventData.title}</strong>.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <Link to={`/directory/${slug}`} className="btn btn-primary">
+              <i className="fa-solid fa-address-book"></i> {t.checkinBtnGoDirectory}
+            </Link>
+            <Link to="/" className="btn btn-outline">{t.checkinBtnGoHome}</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If check-in limit is exceeded, render the limit warning view
+  if (limitExceeded && !checkedIn) {
+    return (
+      <div className="warm-theme">
+        <div className="bg-blob blob-1"></div>
+        <div className="bg-blob blob-2"></div>
+        <div className="bg-blob blob-3"></div>
+
+        <header className="app-header">
+          <div className="header-container">
+            <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <Logo variant={1} showText={true} size={30} />
+            </Link>
+            
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <button className="lang-toggle-btn" onClick={handleLangToggle}>
+                <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
+                {lang === 'vi' ? 'EN' : 'VI'}
+              </button>
+            </div>
+          </div>
+        </header>
+        
+        <div className="checkin-container glass" style={{ marginTop: '100px', textAlign: 'center', padding: '40px 30px' }}>
+          <div style={{ fontSize: '56px', color: '#d97706', marginBottom: '20px' }}>
+            <i className="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontWeight: '800', marginBottom: '12px', color: 'var(--text-primary)' }}>
+            {t.checkinLimitTitle}
+          </h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '30px', lineHeight: '1.6' }}>
+            {t.checkinLimitDesc}
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
             <Link to={`/directory/${slug}`} className="btn btn-primary">

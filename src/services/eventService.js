@@ -40,6 +40,7 @@ export const eventService = {
                     description: slug === 'test-event' ? 'Chia sẻ công nghệ, kết nối đầu tư và tìm kiếm cộng sự phát triển dự án.' : 'Chào mừng bạn tham gia sự kiện và kết nối vòng tròn quan hệ.',
                     is_checkin_open: true,
                     require_phone: false,
+                    is_premium: false,
                     event_type: slug === 'test-event' ? 'hybrid' : 'offline',
                     meeting_link: slug === 'test-event' ? 'https://zoom.us/j/123456789' : '',
                     created_at: new Date().toISOString()
@@ -50,7 +51,7 @@ export const eventService = {
             return { data: events[slug], error: null };
         } else {
             const { data, error } = await supabase
-                .from('events')
+                .from('events_public')
                 .select('*')
                 .eq('slug', slug)
                 .maybeSingle();
@@ -76,6 +77,7 @@ export const eventService = {
                 host_email: hostEmail,
                 is_checkin_open: true,
                 require_phone: false,
+                is_premium: false,
                 event_type: eventType,
                 meeting_link: meetingLink,
                 created_at: new Date().toISOString()
@@ -85,17 +87,14 @@ export const eventService = {
             return { data: newEvent, error: null };
         } else {
             const { data, error } = await supabase
-                .from('events')
-                .insert([{ 
-                    slug, 
-                    title, 
-                    description, 
-                    host_email: hostEmail,
-                    event_type: eventType,
-                    meeting_link: meetingLink
-                }])
-                .select()
-                .single();
+                .rpc('create_event', {
+                    p_slug: slug,
+                    p_title: title,
+                    p_description: description,
+                    p_host_email: hostEmail,
+                    p_event_type: eventType,
+                    p_meeting_link: meetingLink
+                });
             return { data, error };
         }
     },
@@ -119,12 +118,19 @@ export const eventService = {
             
             return { data: events[slug], error: null };
         } else {
+            const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
             const { data, error } = await supabase
-                .from('events')
-                .update(updates)
-                .eq('slug', slug)
-                .select()
-                .single();
+                .rpc('admin_update_event', {
+                    p_slug: slug,
+                    p_token: token,
+                    p_title: updates.title !== undefined ? updates.title : null,
+                    p_description: updates.description !== undefined ? updates.description : null,
+                    p_is_checkin_open: updates.is_checkin_open !== undefined ? updates.is_checkin_open : null,
+                    p_require_phone: updates.require_phone !== undefined ? updates.require_phone : null,
+                    p_is_premium: updates.is_premium !== undefined ? updates.is_premium : null,
+                    p_event_type: updates.event_type !== undefined ? updates.event_type : null,
+                    p_meeting_link: updates.meeting_link !== undefined ? updates.meeting_link : null
+                });
             return { data, error };
         }
     },
@@ -153,37 +159,69 @@ export const eventService = {
      * Add a new attendee check-in
      */
     async addAttendee(eventId, attendeeData) {
-        if (isDemoMode) {
-            const attendees = getLocalAttendees();
-            const newAttendee = {
-                id: 'guest-' + generateUUID(),
-                event_id: eventId,
-                ...attendeeData,
-                created_at: new Date().toISOString()
-            };
-            attendees.push(newAttendee);
-            saveLocalAttendees(attendees);
-            
-            // Dispatch dynamic window event for real-time tab syncing
-            window.dispatchEvent(new CustomEvent('circlelink-realtime-insert', { 
-                detail: newAttendee 
-            }));
-            
-            return { data: newAttendee, error: null };
-        } else {
-            const { data, error } = await supabase
-                .from('attendees')
-                .insert([{ event_id: eventId, ...attendeeData }])
-                .select()
-                .single();
-            return { data, error };
+        try {
+            if (isDemoMode) {
+                const events = getLocalEvents() || {};
+                const event = Object.values(events).find(e => e && e.id === eventId);
+                const attendees = getLocalAttendees() || [];
+                const filtered = attendees.filter(a => a && a.event_id === eventId);
+                
+                if (event && !event.is_premium && filtered.length >= 2) {
+                    return { data: null, error: { message: "LIMIT_EXCEEDED" } };
+                }
+
+                const newAttendee = {
+                    id: 'guest-' + generateUUID(),
+                    event_id: eventId,
+                    ...attendeeData,
+                    created_at: new Date().toISOString()
+                };
+                attendees.push(newAttendee);
+                saveLocalAttendees(attendees);
+                
+                // Dispatch dynamic window event for real-time tab syncing
+                window.dispatchEvent(new CustomEvent('circlelink-realtime-insert', { 
+                    detail: newAttendee 
+                }));
+                
+                return { data: newAttendee, error: null };
+            } else {
+                // Check if the event is premium
+                const { data: event, error: eventErr } = await supabase
+                    .from('events_public')
+                    .select('is_premium')
+                    .eq('id', eventId)
+                    .maybeSingle();
+
+                if (!eventErr && event && !event.is_premium) {
+                    // Count current attendees
+                    const { count, error: countErr } = await supabase
+                        .from('attendees')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('event_id', eventId);
+
+                    if (!countErr && count !== null && count >= 2) {
+                        return { data: null, error: { message: "LIMIT_EXCEEDED" } };
+                    }
+                }
+
+                const { data, error } = await supabase
+                    .from('attendees')
+                    .insert([{ event_id: eventId, ...attendeeData }])
+                    .select()
+                    .single();
+                return { data, error };
+            }
+        } catch (err) {
+            console.error("Error in addAttendee:", err);
+            return { data: null, error: { message: err.message || "Unknown error" } };
         }
     },
 
     /**
      * Kick an attendee from the event
      */
-    async kickAttendee(attendeeId) {
+    async kickAttendee(attendeeId, slug) {
         if (isDemoMode) {
             let attendees = getLocalAttendees();
             const filtered = attendees.filter(a => a.id !== attendeeId);
@@ -196,10 +234,13 @@ export const eventService = {
             
             return { error: null };
         } else {
+            const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
             const { error } = await supabase
-                .from('attendees')
-                .delete()
-                .eq('id', attendeeId);
+                .rpc('admin_kick_attendee', {
+                    p_attendee_id: attendeeId,
+                    p_slug: slug,
+                    p_token: token
+                });
             return { error };
         }
     },
@@ -207,7 +248,7 @@ export const eventService = {
     /**
      * Delete all attendees in an event
      */
-    async resetEvent(eventId) {
+    async resetEvent(eventId, slug) {
         if (isDemoMode) {
             let attendees = getLocalAttendees();
             const filtered = attendees.filter(a => a.event_id !== eventId);
@@ -219,11 +260,30 @@ export const eventService = {
             
             return { error: null };
         } else {
+            const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
             const { error } = await supabase
-                .from('attendees')
-                .delete()
-                .eq('event_id', eventId);
+                .rpc('admin_reset_event', {
+                    p_event_id: eventId,
+                    p_slug: slug,
+                    p_token: token
+                });
             return { error };
+        }
+    },
+
+    /**
+     * Verify if the admin token is valid for a given event slug
+     */
+    async verifyAdminToken(slug, token) {
+        if (isDemoMode) {
+            return { isValid: true, error: null };
+        } else {
+            const { data, error } = await supabase
+                .rpc('admin_update_event', {
+                    p_slug: slug,
+                    p_token: token
+                });
+            return { isValid: !error, error };
         }
     },
 

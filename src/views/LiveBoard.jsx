@@ -107,7 +107,7 @@ function LiveBoard() {
   const simulateGuest = async () => {
     if (!eventData || !eventData.is_checkin_open) {
       alert(lang === 'vi' ? "Cổng check-in đang đóng. Hãy mở cổng check-in trong Bảng Quản Trị trước!" : "Check-in gate is closed. Please open it in Host Admin first!");
-      return;
+      return { error: { message: "CLOSED" } };
     }
 
     const randPreset = mockLib[Math.floor(Math.random() * mockLib.length)];
@@ -136,14 +136,26 @@ function LiveBoard() {
       privacy: privacy
     };
 
-    await eventService.addAttendee(eventData.id, newGuestData);
+    const res = await eventService.addAttendee(eventData.id, newGuestData);
+    if (res.error && res.error.message === 'LIMIT_EXCEEDED') {
+      alert(lang === 'vi'
+        ? '⚠️ Bản MIỄN PHÍ giới hạn tối đa 50 khách check-in! Vui lòng nâng cấp lên gói Premium để tiếp tục thêm thành viên.'
+        : '⚠️ FREE plan limit reached (50 check-ins)! Please upgrade to Premium to add more guests.'
+      );
+    }
+    return res;
   };
 
   const simulateMultipleGuests = async () => {
     setSimulating(true);
     let count = 0;
     const interval = setInterval(async () => {
-      await simulateGuest();
+      const { error } = await simulateGuest();
+      if (error) {
+        clearInterval(interval);
+        setSimulating(false);
+        return;
+      }
       count++;
       if (count >= 5) {
         clearInterval(interval);

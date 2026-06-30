@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.events (
   host_id UUID, -- Optional: references auth.users(id) if authentication is set up
   is_checkin_open BOOLEAN DEFAULT true,
   require_phone BOOLEAN DEFAULT false,
+  is_premium BOOLEAN DEFAULT false,
   event_type TEXT DEFAULT 'offline', -- 'offline', 'online', 'hybrid'
   meeting_link TEXT, -- Link to Zoom, Google Meet, Teams, etc.
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
@@ -59,4 +60,6 @@ ALTER TABLE public.attendees DISABLE ROW LEVEL SECURITY;
 -- If you already created the events table, run these SQL queries to update your database schema:
 -- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS event_type TEXT DEFAULT 'offline';
 -- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS meeting_link TEXT;
+-- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS is_premium BOOLEAN DEFAULT false;
+
 
