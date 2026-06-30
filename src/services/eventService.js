@@ -166,7 +166,7 @@ export const eventService = {
                 const attendees = getLocalAttendees() || [];
                 const filtered = attendees.filter(a => a && a.event_id === eventId);
                 
-                if (event && !event.is_premium && filtered.length >= 2) {
+                if (event && !event.is_premium && filtered.length >= 50) {
                     return { data: null, error: { message: "LIMIT_EXCEEDED" } };
                 }
 
@@ -200,7 +200,7 @@ export const eventService = {
                         .select('id', { count: 'exact', head: true })
                         .eq('event_id', eventId);
 
-                    if (!countErr && count !== null && count >= 2) {
+                    if (!countErr && count !== null && count >= 50) {
                         return { data: null, error: { message: "LIMIT_EXCEEDED" } };
                     }
                 }

@@ -73,7 +73,7 @@ function GuestCheckin() {
       // Check current attendee count
       const { data: attendees, error: attendeesErr } = await eventService.getAttendees(event.id);
       if (!attendeesErr && attendees) {
-        if (!event.is_premium && attendees.length >= 2) {
+        if (!event.is_premium && attendees.length >= 50) {
           setLimitExceeded(true);
         } else {
           setLimitExceeded(false);
@@ -94,7 +94,7 @@ function GuestCheckin() {
       (_newAttendee) => {
         if (!eventData.is_premium) {
           eventService.getAttendees(eventData.id).then(({ data }) => {
-            if (data && data.length >= 2) {
+            if (data && data.length >= 50) {
               setLimitExceeded(true);
             }
           });
@@ -103,7 +103,7 @@ function GuestCheckin() {
       (_deletedId) => {
         if (!eventData.is_premium) {
           eventService.getAttendees(eventData.id).then(({ data }) => {
-            if (data && data.length < 2) {
+            if (data && data.length < 50) {
               setLimitExceeded(false);
             }
           });
@@ -118,7 +118,7 @@ function GuestCheckin() {
           setLimitExceeded(false);
         } else {
           eventService.getAttendees(updatedEvent.id).then(({ data }) => {
-            if (data && data.length >= 2) {
+            if (data && data.length >= 50) {
               setLimitExceeded(true);
             } else {
               setLimitExceeded(false);
