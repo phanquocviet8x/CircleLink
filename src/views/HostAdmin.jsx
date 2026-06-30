@@ -21,6 +21,18 @@ function HostAdmin() {
   const [loading, setLoading] = useState(true);
   const [searchVal, setSearchVal] = useState('');
   
+  // Multilingual state
+  const [lang, setLang] = useState(getLanguage());
+  
+  // Local state for settings form
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
+  const [checkinOpen, setCheckinOpen] = useState(true);
+  const [requirePhone, setRequirePhone] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [eventType, setEventType] = useState('offline');
+  const [meetingLink, setMeetingLink] = useState('');
+
   // Admin Token Verification State
   const [tokenInput, setTokenInput] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -29,8 +41,6 @@ function HostAdmin() {
   const [verifying, setVerifying] = useState(false);
 
   const t = getTranslations(lang);
-
-  const [lang, setLang] = useState(getLanguage());
 
   useEffect(() => {
     async function loadEventData() {
