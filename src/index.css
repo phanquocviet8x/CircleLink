@@ -2959,13 +2959,16 @@ html {
     }
 
     /* LiveBoard and Admin Grid/Card Scaling */
-    .host-grid {
+    .host-grid,
+    .host-admin-dashboard {
         grid-template-columns: 1fr !important;
         gap: 16px !important;
         width: 100% !important;
     }
 
-    .host-card {
+    .host-card,
+    .admin-settings,
+    .admin-moderation {
         padding: 20px 16px !important;
         width: 100% !important;
         max-width: 100% !important;
@@ -3013,6 +3016,32 @@ html {
     /* Data action buttons in Host Admin Panel */
     .data-buttons-grid {
         grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    /* Moderation table scroll wrapper on mobile */
+    .moderation-table-wrapper {
+        overflow-x: auto !important;
+    }
+
+    .moderation-table {
+        min-width: 450px !important; /* Force minimum table width for smooth scrolling */
+    }
+
+    /* Wrap labels inside switches on mobile */
+    .switch-info {
+        flex: 1 !important;
+        min-width: 0 !important;
+        padding-right: 12px !important;
+    }
+    
+    .switch-desc {
+        white-space: normal !important;
+    }
+
+    /* Section title wrap */
+    .section-title-bar {
+        flex-wrap: wrap !important;
         gap: 8px !important;
     }
 }
