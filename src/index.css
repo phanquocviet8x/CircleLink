@@ -2832,6 +2832,129 @@ html {
     text-decoration: underline;
 }
 
+/* ==================== GLOBAL MOBILE RESPONSIVE FIXES (max-width: 600px) ==================== */
+@media (max-width: 600px) {
+    /* Prevent all horizontal overflow */
+    html, body, #root {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+    
+    /* App Container Padding */
+    .app-container {
+        padding: 0 16px 40px 16px !important;
+        margin: 20px auto !important;
+    }
 
+    /* App Header Layout Stack on Mobile */
+    .header-container {
+        padding: 12px 16px !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        text-align: center !important;
+    }
 
+    /* Actions inside Header */
+    .header-container > *:nth-child(2) {
+        width: 100% !important;
+        justify-content: center !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
 
+    /* Host Session Badge truncation on mobile */
+    .warm-theme .host-session-badge {
+        max-width: 180px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        padding: 6px 12px !important;
+    }
+    .warm-theme .host-session-badge span {
+        max-width: 110px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+        display: inline-block !important;
+    }
+
+    /* Homepage / Landing Hero scaling */
+    .home-container {
+        padding: 24px 16px !important;
+        margin-top: 10px !important;
+    }
+    
+    .hero-section {
+        margin-bottom: 32px !important;
+    }
+
+    .hero-title {
+        font-size: 32px !important;
+    }
+    .warm-theme .hero-title {
+        font-size: 32px !important;
+        line-height: 1.25 !important;
+        margin-bottom: 12px !important;
+    }
+    
+    .hero-subtitle {
+        font-size: 14.5px !important;
+        padding: 0 8px !important;
+    }
+
+    .cta-buttons-wrap {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 12px !important;
+        padding: 0 8px !important;
+    }
+    
+    .cta-buttons-wrap .btn {
+        width: 100% !important;
+        padding: 12px 20px !important;
+    }
+
+    /* Actions form card scaling */
+    .home-actions-card {
+        padding: 24px 16px !important;
+        margin-bottom: 24px !important;
+        border-radius: 16px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .home-actions-card h3 {
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+    }
+
+    /* Form Fields adjust spacing */
+    .form-group-home {
+        margin-bottom: 16px !important;
+    }
+
+    /* Checkin form card scaling */
+    .checkin-container {
+        padding: 24px 16px !important;
+        border-radius: 16px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .form-header {
+        margin-bottom: 24px !important;
+    }
+
+    .form-header h2 {
+        font-size: 22px !important;
+    }
+    
+    /* Login Modal responsive fixes */
+    .login-modal {
+        padding: 24px 16px !important;
+        width: calc(100% - 32px) !important;
+        max-width: 380px !important;
+        border-radius: 16px !important;
+        margin: 0 auto !important;
+    }
+}
