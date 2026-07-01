@@ -64,6 +64,57 @@ function Home() {
     };
   }, []);
 
+  // Auto-create event if host logs in and there is a pending event saved in localStorage
+  useEffect(() => {
+    if (!isLoggedIn || !hostEmail) return;
+
+    const pendingEventStr = localStorage.getItem('circlelink_pending_event');
+    if (pendingEventStr) {
+      try {
+        const pendingEvent = JSON.parse(pendingEventStr);
+        localStorage.removeItem('circlelink_pending_event'); // Clear it to prevent multiple submissions
+
+        // Pre-populate form state so it is visible and not lost in case of error (e.g. slug already exists)
+        setTitle(pendingEvent.title || '');
+        setDesc(pendingEvent.desc || '');
+        setSlug(pendingEvent.slug || '');
+        setEventType(pendingEvent.eventType || 'offline');
+        setMeetingLink(pendingEvent.meetingLink || '');
+
+        const autoCreate = async () => {
+          setLoading(true);
+          setError('');
+
+          const { data, error: serviceError } = await eventService.createEvent(
+            pendingEvent.slug,
+            pendingEvent.title,
+            pendingEvent.desc,
+            hostEmail,
+            pendingEvent.eventType,
+            pendingEvent.meetingLink
+          );
+
+          setLoading(false);
+
+          if (serviceError) {
+            setError(serviceError.message || (lang === 'vi' ? 'Đã có lỗi xảy ra khi tự động tạo sự kiện.' : 'An error occurred while automatically creating the event.'));
+          } else if (data) {
+            if (data.admin_token) {
+              localStorage.setItem(`circlelink_admin_token_${data.slug}`, data.admin_token);
+            }
+            // Event created successfully! Route directly to Host Admin Dashboard
+            navigate(`/event/${data.slug}/admin`);
+          }
+        };
+
+        autoCreate();
+      } catch (e) {
+        console.error("Failed to parse pending event", e);
+        localStorage.removeItem('circlelink_pending_event');
+      }
+    }
+  }, [isLoggedIn, hostEmail, navigate, lang]);
+
   const handleLangToggle = () => {
     const newLang = lang === 'vi' ? 'en' : 'vi';
     setLanguage(newLang);
@@ -93,6 +144,14 @@ function Home() {
 
     // Auth gate check: require login to create/host an event!
     if (!isLoggedIn) {
+      // Save form data to localStorage so we can auto-create the event after successful login
+      localStorage.setItem('circlelink_pending_event', JSON.stringify({
+        title: title.trim(),
+        desc: desc.trim(),
+        slug: slug.trim().toLowerCase(),
+        eventType,
+        meetingLink: eventType !== 'offline' ? meetingLink.trim() : ''
+      }));
       setLoginError('');
       setShowLoginModal(true);
       return;
