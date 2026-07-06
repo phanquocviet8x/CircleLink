@@ -42,6 +42,9 @@ function EventDirectory() {
 
   const t = getTranslations(lang);
 
+  // Id of the attendee checked in on this device (if any), used to hide own vcard/checkin button
+  const myAttendeeId = localStorage.getItem(`circlelink_attendee_id_${slug}`);
+
   const handleLangToggle = () => {
     const newLang = lang === 'vi' ? 'en' : 'vi';
     setLanguage(newLang);
@@ -198,6 +201,10 @@ function EventDirectory() {
 
   // Perform filtration logic
   const filteredAttendees = attendeesList.filter(guest => {
+    // 0. Exclude my own profile from the directory list (only show other checked-in guests)
+    if (myAttendeeId && guest.id === myAttendeeId) {
+      return false;
+    }
     // 1. My Circle Filter
     if (myCircleFilterActive && !bookmarkedIds.has(guest.id)) {
       return false;
@@ -240,15 +247,20 @@ function EventDirectory() {
               {lang === 'vi' ? 'EN' : 'VI'}
             </button>
 
-            {localStorage.getItem(`circlelink_attendee_id_${slug}`) && (
-              <Link to={`/profile/${slug}`} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px', borderColor: 'var(--accent-purple)', color: 'var(--accent-violet)' }}>
-                <i className="fa-solid fa-user-gear"></i> {lang === 'vi' ? 'Hồ sơ của tôi' : 'My Profile'}
+            {myAttendeeId ? (
+              <>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600', color: '#10b981' }}>
+                  {t.dirAlreadyCheckedIn}
+                </span>
+                <Link to={`/profile/${slug}`} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px', borderColor: 'var(--accent-purple)', color: 'var(--accent-violet)' }}>
+                  <i className="fa-solid fa-user-gear"></i> {lang === 'vi' ? 'Hồ sơ của tôi' : 'My Profile'}
+                </Link>
+              </>
+            ) : (
+              <Link to={`/checkin/${slug}`} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}>
+                <i className="fa-solid fa-user-plus"></i> {t.dirBtnCheckinForm}
               </Link>
             )}
-
-            <Link to={`/checkin/${slug}`} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}>
-              <i className="fa-solid fa-user-plus"></i> {t.dirBtnCheckinForm}
-            </Link>
           </div>
         </div>
       </header>
@@ -556,7 +568,7 @@ function EventDirectory() {
                         <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
                         {lang === 'vi' ? 'Đang tải thông tin liên hệ...' : 'Loading contact details...'}
                       </div>
-                    ) : !localStorage.getItem(`circlelink_attendee_id_${slug}`) ? (
+                    ) : !myAttendeeId ? (
                       <div style={{ gridColumn: 'span 2', textAlign: 'center', color: 'var(--accent-pink)', padding: '15px 0', border: '1px dashed rgba(236, 72, 153, 0.3)', borderRadius: '12px', background: 'rgba(236, 72, 153, 0.05)' }}>
                         <i className="fa-solid fa-lock" style={{ marginRight: '8px' }}></i>
                         {lang === 'vi' ? 'Bạn cần check-in trước để xem thông tin liên hệ!' : 'You must check-in first to view contact details!'}

@@ -55,7 +55,22 @@ function GuestCheckin() {
   const [submitting, setSubmitting] = useState(false);
   const [consent, setConsent] = useState(false);
 
+  // Simple math captcha to deter mass/bot spam check-ins
+  const [captchaA, setCaptchaA] = useState(0);
+  const [captchaB, setCaptchaB] = useState(0);
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+
   const t = getTranslations(lang);
+
+  const generateCaptcha = () => {
+    setCaptchaA(Math.floor(Math.random() * 10) + 1);
+    setCaptchaB(Math.floor(Math.random() * 10) + 1);
+    setCaptchaAnswer('');
+  };
+
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
 
   const handleLangToggle = () => {
     const newLang = lang === 'vi' ? 'en' : 'vi';
@@ -216,6 +231,12 @@ function GuestCheckin() {
       return;
     }
 
+    if (!isEditing && parseInt(captchaAnswer, 10) !== captchaA + captchaB) {
+      showToast(t.checkinCaptchaError);
+      generateCaptcha();
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -262,6 +283,7 @@ function GuestCheckin() {
             ? '⚠️ Bạn đang check-in quá nhanh. Vui lòng đợi 15 giây.' 
             : '⚠️ You are checking in too fast. Please wait 15 seconds.'
           );
+          generateCaptcha();
           setSubmitting(false);
           return;
         }
@@ -274,6 +296,7 @@ function GuestCheckin() {
           } else {
             alert((lang === 'vi' ? "Lỗi check-in: " : "Check-in error: ") + error.message);
           }
+          generateCaptcha();
         } else {
           // Trigger confetti explosion!
           confetti({
@@ -792,6 +815,62 @@ function GuestCheckin() {
 
               </div>
             </div>
+
+            {/* Anti-spam Captcha */}
+            {!isEditing && (
+              <div className="form-group" style={{ marginTop: '20px' }}>
+                <label>{t.checkinCaptchaLabel} <span className="required">*</span></label>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: '90px',
+                      padding: '10px 16px',
+                      borderRadius: '10px',
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid var(--border-color)',
+                      fontWeight: '800',
+                      fontSize: '18px',
+                      letterSpacing: '1px',
+                      userSelect: 'none'
+                    }}
+                  >
+                    {captchaA} + {captchaB} = ?
+                  </div>
+                  <div className="input-wrapper" style={{ flex: '1 1 140px', minWidth: '120px' }}>
+                    <i className="fa-solid fa-shield-halved input-icon"></i>
+                    <input
+                      type="number"
+                      placeholder={t.checkinCaptchaPlaceholder}
+                      value={captchaAnswer}
+                      onChange={(e) => setCaptchaAnswer(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={generateCaptcha}
+                    title={t.checkinCaptchaRefresh}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color)',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <i className="fa-solid fa-rotate"></i>
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Consent Box */}
             {!isEditing && (
