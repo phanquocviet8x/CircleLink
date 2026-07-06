@@ -293,9 +293,24 @@ function LiveBoard() {
               )}
             </div>
           </div>
-
         </div>
       </main>
+
+      {/* Footer */}
+      <footer style={{ textAlign: 'center', padding: '16px 0 24px 0', borderTop: '1px solid var(--border-color)', marginTop: '20px', width: '100%', zIndex: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '8px', fontSize: '13px' }}>
+          <Link to="/terms" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalTerms}
+          </Link>
+          <span style={{ color: 'var(--border-color)' }}>|</span>
+          <Link to="/privacy" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalPrivacy}
+          </Link>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+          © {new Date().getFullYear()} CircleLink. All rights reserved. Powered by Supabase.
+        </p>
+      </footer>
     </div>
   );
 }

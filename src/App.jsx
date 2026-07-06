@@ -7,6 +7,7 @@ import GuestCheckin from './views/GuestCheckin';
 import EventDirectory from './views/EventDirectory';
 import TermsOfService from './views/TermsOfService';
 import PrivacyPolicy from './views/PrivacyPolicy';
+import UserProfileSettings from './views/UserProfileSettings';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/directory/:slug" element={<EventDirectory />} />
         <Route path="/terms" element={<TermsOfService />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/profile/:slug" element={<UserProfileSettings />} />
       </Routes>
     </Router>
   );

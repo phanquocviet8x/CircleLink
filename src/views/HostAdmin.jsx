@@ -202,6 +202,24 @@ function HostAdmin() {
     }
   };
 
+  const handleDeleteEvent = async () => {
+    const confirmDelete = confirm(
+      lang === 'vi'
+        ? "🚨 CẢNH BÁO CỰC KỲ QUAN TRỌNG:\nBạn có chắc chắn muốn XÓA VĨNH VIỄN sự kiện này?\nMọi thông tin sự kiện cùng toàn bộ danh sách khách tham dự sẽ bị xóa sạch khỏi Supabase và không thể khôi phục lại."
+        : "🚨 EXTREMELY IMPORTANT WARNING:\nAre you sure you want to PERMANENTLY DELETE this event?\nAll event information and guest list data will be completely wiped from Supabase and cannot be recovered."
+    );
+    if (!confirmDelete) return;
+
+    const { error } = await eventService.deleteEvent(slug);
+    if (error) {
+      alert((lang === 'vi' ? "Lỗi khi xóa sự kiện: " : "Error deleting event: ") + error.message);
+    } else {
+      localStorage.removeItem(`circlelink_admin_token_${slug}`);
+      alert(lang === 'vi' ? "Đã xóa sự kiện thành công!" : "Event deleted successfully!");
+      navigate('/');
+    }
+  };
+
   const exportToCSV = () => {
     if (attendeesList.length === 0) {
       alert(lang === 'vi' ? "Danh sách trống. Không thể xuất file CSV." : "Check-in list is empty. Cannot export CSV.");
@@ -662,6 +680,20 @@ function HostAdmin() {
                 <i className="fa-solid fa-trash-can"></i> {lang === 'vi' ? 'Xóa toàn bộ khách check-in' : 'Clear all checked-in guests'}
               </button>
             </div>
+            
+            {/* Danger Zone: Delete Event */}
+            <div className="glass" style={{ padding: '20px', borderRadius: '16px', marginTop: '24px', background: 'rgba(220, 38, 38, 0.02)', border: '1px solid rgba(220, 38, 38, 0.15)' }}>
+              <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '8px', color: '#ef4444', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-triangle-exclamation"></i>
+                {lang === 'vi' ? 'Vùng nguy hiểm: Xóa sự kiện' : 'Danger Zone: Delete Event'}
+              </h4>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12.5px', marginBottom: '16px', lineHeight: '1.4' }}>
+                {lang === 'vi' ? 'Hành động này sẽ xóa vĩnh viễn sự kiện và toàn bộ danh sách check-in khỏi cơ sở dữ liệu Supabase. Tất cả dữ liệu sẽ mất hoàn toàn và không thể khôi phục.' : 'This will permanently delete the event and all guest check-in records from the Supabase database. All data will be lost and cannot be recovered.'}
+              </p>
+              <button onClick={handleDeleteEvent} className="btn" style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff', width: '100%', fontWeight: 'bold' }}>
+                <i className="fa-solid fa-trash-arrow-up"></i> {lang === 'vi' ? 'XÓA VĨNH VIỄN SỰ KIỆN NÀY' : 'DELETE THIS EVENT PERMANENTLY'}
+              </button>
+            </div>
           </div>
 
           {/* Right: Moderation List */}
@@ -739,6 +771,22 @@ function HostAdmin() {
 
         </div>
       </main>
+
+      {/* Footer */}
+      <footer style={{ textAlign: 'center', padding: '24px 0 40px 0', borderTop: '1px solid var(--border-color)', marginTop: '40px', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '10px', fontSize: '13px' }}>
+          <Link to="/terms" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalTerms}
+          </Link>
+          <span style={{ color: 'var(--border-color)' }}>|</span>
+          <Link to="/privacy" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalPrivacy}
+          </Link>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+          © {new Date().getFullYear()} CircleLink. All rights reserved. Powered by Supabase.
+        </p>
+      </footer>
     </div>
   );
 }

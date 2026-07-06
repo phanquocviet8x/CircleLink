@@ -345,6 +345,53 @@ export const eventService = {
     },
 
     /**
+     * Delete attendee profile directly (user self-delete)
+     */
+    async deleteAttendeeDirect(attendeeId) {
+        if (isDemoMode) {
+            let attendees = getLocalAttendees();
+            const filtered = attendees.filter(a => a.id !== attendeeId);
+            saveLocalAttendees(filtered);
+            
+            // Dispatch event for real-time tab syncing
+            window.dispatchEvent(new CustomEvent('circlelink-realtime-delete', { 
+                detail: { id: attendeeId } 
+            }));
+            return { error: null };
+        } else {
+            const { error } = await supabase
+                .from('attendees')
+                .delete()
+                .eq('id', attendeeId);
+            return { error };
+        }
+    },
+
+    /**
+     * Delete entire event (host deletes event)
+     */
+    async deleteEvent(slug) {
+        if (isDemoMode) {
+            const events = getLocalEvents();
+            const eventObj = events[slug];
+            if (eventObj) {
+                let attendees = getLocalAttendees();
+                const filteredAttendees = attendees.filter(a => a.event_id !== eventObj.id);
+                saveLocalAttendees(filteredAttendees);
+            }
+            delete events[slug];
+            saveLocalEvents(events);
+            return { error: null };
+        } else {
+            const { error } = await supabase
+                .from('events')
+                .delete()
+                .eq('slug', slug);
+            return { error };
+        }
+    },
+
+    /**
      * Subscribe to real-time additions and removals of attendees
      */
     subscribeToAttendees(eventId, onInsert, onDelete, onReset, onEventUpdate, onUpdateAttendee) {

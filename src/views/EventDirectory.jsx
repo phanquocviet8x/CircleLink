@@ -222,6 +222,12 @@ function EventDirectory() {
               {lang === 'vi' ? 'EN' : 'VI'}
             </button>
 
+            {localStorage.getItem(`circlelink_attendee_id_${slug}`) && (
+              <Link to={`/profile/${slug}`} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px', borderColor: 'var(--accent-purple)', color: 'var(--accent-violet)' }}>
+                <i className="fa-solid fa-user-gear"></i> {lang === 'vi' ? 'Hồ sơ của tôi' : 'My Profile'}
+              </Link>
+            )}
+
             <Link to={`/checkin/${slug}`} className="btn btn-outline" style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}>
               <i className="fa-solid fa-user-plus"></i> {t.dirBtnCheckinForm}
             </Link>
@@ -465,6 +471,22 @@ function EventDirectory() {
         </div>
 
       </main>
+
+      {/* Footer */}
+      <footer style={{ textAlign: 'center', padding: '24px 0 40px 0', borderTop: '1px solid var(--border-color)', marginTop: '40px', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '10px', fontSize: '13px' }}>
+          <Link to="/terms" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalTerms}
+          </Link>
+          <span style={{ color: 'var(--border-color)' }}>|</span>
+          <Link to="/privacy" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalPrivacy}
+          </Link>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+          © {new Date().getFullYear()} CircleLink. All rights reserved. Powered by Supabase.
+        </p>
+      </footer>
 
       {/* Profile Detail Modal */}
       {modalOpen && selectedGuest && (() => {
