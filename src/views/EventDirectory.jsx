@@ -32,6 +32,8 @@ function EventDirectory() {
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState(null);
+  const [selectedContacts, setSelectedContacts] = useState(null);
+  const [loadingContacts, setLoadingContacts] = useState(false);
 
   // Toast State
   const [toastMsg, setToastMsg] = useState('');
@@ -97,7 +99,11 @@ function EventDirectory() {
   };
 
   const downloadVCard = (guest) => {
-    const vCardData = buildVCardString(guest);
+    const guestWithContacts = {
+      ...guest,
+      contacts: selectedContacts || guest.contacts
+    };
+    const vCardData = buildVCardString(guestWithContacts);
     const blob = new Blob([vCardData], { type: 'text/vcard;charset=utf-8;' });
     const filename = `${guest.name.replace(/\s+/g, '_')}.vcf`;
     
@@ -168,14 +174,25 @@ function EventDirectory() {
     showToast(t.dirExportSuccess, 'success');
   };
 
-  const openModal = (guest) => {
+  const openModal = async (guest) => {
     setSelectedGuest(guest);
     setModalOpen(true);
+    setSelectedContacts(null);
+    setLoadingContacts(true);
+
+    const { data, error } = await eventService.getAttendeeContact(guest.id, guest.event_id, slug);
+    setLoadingContacts(false);
+    if (!error && data) {
+      setSelectedContacts(data);
+    } else {
+      setSelectedContacts({});
+    }
   };
 
   const closeModal = () => {
     setModalOpen(false);
     setSelectedGuest(null);
+    setSelectedContacts(null);
   };
 
   // Perform filtration logic
@@ -500,7 +517,7 @@ function EventDirectory() {
           { key: 'linkedin', title: 'LinkedIn', icon: 'fa-linkedin', class: 'in-link', prefix: '' },
           { key: 'instagram', title: 'Instagram', icon: 'fa-instagram', class: 'ig-link', prefix: '' }
         ];
-        const sharedContacts = contactDefs.filter(def => selectedGuest.contacts?.[def.key] && selectedGuest.privacy?.[def.key]);
+        const sharedContacts = contactDefs.filter(def => selectedContacts?.[def.key] && selectedGuest.privacy?.[def.key]);
 
         return (
           <div className="modal-overlay active" onClick={closeModal}>
@@ -533,9 +550,22 @@ function EventDirectory() {
                 <div className="modal-contacts">
                   <h3>{lang === 'vi' ? 'Thông tin liên hệ được chia sẻ' : 'Shared Contact Details'}</h3>
                   <div className="contact-links-grid">
-                    {sharedContacts.length > 0 ? (
+                    {loadingContacts ? (
+                      <div style={{ gridColumn: 'span 2', textAlign: 'center', color: 'var(--text-secondary)', padding: '15px 0' }}>
+                        <i className="fa-solid fa-spinner fa-spin" style={{ marginRight: '8px' }}></i>
+                        {lang === 'vi' ? 'Đang tải thông tin liên hệ...' : 'Loading contact details...'}
+                      </div>
+                    ) : !localStorage.getItem(`circlelink_attendee_id_${slug}`) ? (
+                      <div style={{ gridColumn: 'span 2', textAlign: 'center', color: 'var(--accent-pink)', padding: '15px 0', border: '1px dashed rgba(236, 72, 153, 0.3)', borderRadius: '12px', background: 'rgba(236, 72, 153, 0.05)' }}>
+                        <i className="fa-solid fa-lock" style={{ marginRight: '8px' }}></i>
+                        {lang === 'vi' ? 'Bạn cần check-in trước để xem thông tin liên hệ!' : 'You must check-in first to view contact details!'}
+                        <Link to={`/checkin/${slug}`} style={{ display: 'block', marginTop: '8px', color: 'var(--text-primary)', fontWeight: 'bold', textDecoration: 'underline' }}>
+                          {lang === 'vi' ? '👉 Đi tới trang Check-in' : '👉 Go to Check-in page'}
+                        </Link>
+                      </div>
+                    ) : sharedContacts.length > 0 ? (
                       sharedContacts.map(def => {
-                        const val = selectedGuest.contacts[def.key];
+                        const val = selectedContacts[def.key];
                         let url = val;
                         if (def.prefix) {
                           if (def.key === 'telegram') {

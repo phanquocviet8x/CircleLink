@@ -147,10 +147,31 @@ export const eventService = {
             return { data: filtered, error: null };
         } else {
             const { data, error } = await supabase
-                .from('attendees')
+                .from('attendees_public')
                 .select('*')
                 .eq('event_id', eventId)
                 .order('created_at', { ascending: false });
+            return { data, error };
+        }
+    },
+
+    /**
+     * Get all attendees with contacts (for host admin dashboard)
+     */
+    async adminGetAttendees(eventId, slug) {
+        if (isDemoMode) {
+            const attendees = getLocalAttendees();
+            const filtered = attendees.filter(a => a.event_id === eventId);
+            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            return { data: filtered, error: null };
+        } else {
+            const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
+            const { data, error } = await supabase
+                .rpc('admin_get_attendees', {
+                    p_event_id: eventId,
+                    p_slug: slug,
+                    p_token: token
+                });
             return { data, error };
         }
     },
@@ -186,30 +207,18 @@ export const eventService = {
                 
                 return { data: newAttendee, error: null };
             } else {
-                // Check if the event is premium
-                const { data: event, error: eventErr } = await supabase
-                    .from('events_public')
-                    .select('is_premium')
-                    .eq('id', eventId)
-                    .maybeSingle();
-
-                if (!eventErr && event && !event.is_premium) {
-                    // Count current attendees
-                    const { count, error: countErr } = await supabase
-                        .from('attendees')
-                        .select('id', { count: 'exact', head: true })
-                        .eq('event_id', eventId);
-
-                    if (!countErr && count !== null && count >= 50) {
-                        return { data: null, error: { message: "LIMIT_EXCEEDED" } };
-                    }
-                }
-
                 const { data, error } = await supabase
-                    .from('attendees')
-                    .insert([{ event_id: eventId, ...attendeeData }])
-                    .select()
-                    .single();
+                    .rpc('checkin_attendee', {
+                        p_event_id: eventId,
+                        p_name: attendeeData.name,
+                        p_role: attendeeData.role,
+                        p_bio: attendeeData.bio || '',
+                        p_avatar: attendeeData.avatar || 'avatar-1',
+                        p_looking: attendeeData.looking || 'Không chia sẻ cụ thể.',
+                        p_help: attendeeData.help || 'Không chia sẻ cụ thể.',
+                        p_contacts: attendeeData.contacts || {},
+                        p_privacy: attendeeData.privacy || {}
+                    });
                 return { data, error };
             }
         } catch (err) {
@@ -228,10 +237,9 @@ export const eventService = {
             return { data: attendee || null, error: attendee ? null : { message: "Attendee not found." } };
         } else {
             const { data, error } = await supabase
-                .from('attendees')
-                .select('*')
-                .eq('id', attendeeId)
-                .maybeSingle();
+                .rpc('get_attendee_self', {
+                    p_attendee_id: attendeeId
+                });
             return { data, error };
         }
     },
@@ -262,11 +270,10 @@ export const eventService = {
                 return { data: updatedAttendee, error: null };
             } else {
                 const { data, error } = await supabase
-                    .from('attendees')
-                    .update(attendeeData)
-                    .eq('id', attendeeId)
-                    .select()
-                    .single();
+                    .rpc('update_attendee_self', {
+                        p_attendee_id: attendeeId,
+                        p_data: attendeeData
+                    });
                 return { data, error };
             }
         } catch (err) {
@@ -360,9 +367,9 @@ export const eventService = {
             return { error: null };
         } else {
             const { error } = await supabase
-                .from('attendees')
-                .delete()
-                .eq('id', attendeeId);
+                .rpc('delete_attendee_self', {
+                    p_attendee_id: attendeeId
+                });
             return { error };
         }
     },
@@ -383,11 +390,34 @@ export const eventService = {
             saveLocalEvents(events);
             return { error: null };
         } else {
+            const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
             const { error } = await supabase
-                .from('events')
-                .delete()
-                .eq('slug', slug);
+                .rpc('admin_delete_event', {
+                    p_slug: slug,
+                    p_token: token
+                });
             return { error };
+        }
+    },
+
+    /**
+     * Get contact details for a specific attendee (guest-to-guest)
+     */
+    async getAttendeeContact(attendeeId, eventId, slug) {
+        if (isDemoMode) {
+            const attendees = getLocalAttendees() || [];
+            const attendee = attendees.find(a => a && a.id === attendeeId);
+            if (!attendee) return { data: null, error: { message: "Attendee not found" } };
+            return { data: attendee.contacts || {}, error: null };
+        } else {
+            const requesterId = localStorage.getItem(`circlelink_attendee_id_${slug}`);
+            const { data, error } = await supabase
+                .rpc('get_attendee_contact', {
+                    p_attendee_id: attendeeId,
+                    p_event_id: eventId,
+                    p_requester_id: requesterId || null
+                });
+            return { data, error };
         }
     },
 

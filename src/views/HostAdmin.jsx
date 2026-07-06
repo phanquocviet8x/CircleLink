@@ -65,7 +65,7 @@ function HostAdmin() {
         const { isValid } = await eventService.verifyAdminToken(slug, token);
         if (isValid) {
           setIsAuthorized(true);
-          const { data: list, error: listErr } = await eventService.getAttendees(event.id);
+          const { data: list, error: listErr } = await eventService.adminGetAttendees(event.id, slug);
           if (!listErr && list) {
             setAttendeesList(list);
           }
@@ -90,7 +90,7 @@ function HostAdmin() {
       localStorage.setItem(`circlelink_admin_token_${slug}`, tokenInput.trim());
       setIsAuthorized(true);
       setLoading(true);
-      const { data: list, error: listErr } = await eventService.getAttendees(eventData.id);
+      const { data: list, error: listErr } = await eventService.adminGetAttendees(eventData.id, slug);
       if (!listErr && list) {
         setAttendeesList(list);
       }
