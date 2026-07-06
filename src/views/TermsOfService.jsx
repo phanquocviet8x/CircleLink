@@ -79,7 +79,17 @@ function TermsOfService() {
                 </section>
 
                 <section>
-                  <h3 style={{ color: 'var(--accent-violet)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>5. Thay đổi Điều khoản</h3>
+                  <h3 style={{ color: 'var(--accent-violet)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>5. Điều kiện độ tuổi & Bảo vệ dữ liệu cá nhân</h3>
+                  <p>Dịch vụ dành cho người dùng từ <strong>16 tuổi trở lên</strong>. Bằng việc sử dụng dịch vụ, bạn xác nhận đã đủ 16 tuổi. Việc thu thập và xử lý dữ liệu cá nhân được thực hiện theo <Link to="/privacy" style={{ color: 'var(--accent-violet)' }}>Chính sách bảo mật</Link> của chúng tôi, phù hợp với Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15.</p>
+                </section>
+
+                <section>
+                  <h3 style={{ color: 'var(--accent-violet)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>6. Luật áp dụng & Giải quyết tranh chấp</h3>
+                  <p>Các Điều khoản này được điều chỉnh và giải thích theo <strong>pháp luật Việt Nam</strong>. Mọi tranh chấp phát sinh sẽ được ưu tiên giải quyết thông qua thương lượng; nếu không đạt được thỏa thuận, tranh chấp sẽ được đưa ra cơ quan có thẩm quyền tại Việt Nam.</p>
+                </section>
+
+                <section>
+                  <h3 style={{ color: 'var(--accent-violet)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>7. Thay đổi Điều khoản</h3>
                   <p>Chúng tôi có thể cập nhật các Điều khoản dịch vụ này bất kỳ lúc nào. Việc tiếp tục sử dụng dịch vụ sau khi có các thay đổi đồng nghĩa với việc bạn chấp nhận các điều khoản mới.</p>
                 </section>
               </>
@@ -112,7 +122,17 @@ function TermsOfService() {
                 </section>
 
                 <section>
-                  <h3 style={{ color: 'var(--accent-violet)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>5. Changes to Terms</h3>
+                  <h3 style={{ color: 'var(--accent-violet)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>5. Age Requirement & Data Protection</h3>
+                  <p>The service is intended for users aged <strong>16 and above</strong>. By using it, you confirm you are at least 16. Collection and processing of personal data is governed by our <Link to="/privacy" style={{ color: 'var(--accent-violet)' }}>Privacy Policy</Link>, in line with Personal Data Protection Law No. 91/2025/QH15.</p>
+                </section>
+
+                <section>
+                  <h3 style={{ color: 'var(--accent-violet)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>6. Governing Law & Disputes</h3>
+                  <p>These Terms are governed by and construed in accordance with the <strong>laws of Vietnam</strong>. Any dispute shall first be resolved through negotiation; failing that, it shall be submitted to the competent authority in Vietnam.</p>
+                </section>
+
+                <section>
+                  <h3 style={{ color: 'var(--accent-violet)', marginBottom: '8px', fontFamily: 'var(--font-heading)' }}>7. Changes to Terms</h3>
                   <p>We may update these Terms of Service at any time. Your continued use of the service following modifications constitutes acceptance of the new terms.</p>
                 </section>
               </>

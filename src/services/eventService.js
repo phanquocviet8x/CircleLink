@@ -179,7 +179,7 @@ export const eventService = {
     /**
      * Add a new attendee check-in
      */
-    async addAttendee(eventId, attendeeData) {
+    async addAttendee(eventId, attendeeData, slug) {
         try {
             if (isDemoMode) {
                 const events = getLocalEvents() || {};
@@ -219,6 +219,10 @@ export const eventService = {
                         p_contacts: attendeeData.contacts || {},
                         p_privacy: attendeeData.privacy || {}
                     });
+                // Persist the ownership secret so this device can later edit/delete its own profile
+                if (!error && data && data.edit_token && slug) {
+                    localStorage.setItem(`circlelink_attendee_token_${slug}`, data.edit_token);
+                }
                 return { data, error };
             }
         } catch (err) {
@@ -230,15 +234,17 @@ export const eventService = {
     /**
      * Get a single attendee by ID
      */
-    async getAttendee(attendeeId) {
+    async getAttendee(attendeeId, slug) {
         if (isDemoMode) {
             const attendees = getLocalAttendees() || [];
             const attendee = attendees.find(a => a && a.id === attendeeId);
             return { data: attendee || null, error: attendee ? null : { message: "Attendee not found." } };
         } else {
+            const editToken = localStorage.getItem(`circlelink_attendee_token_${slug}`);
             const { data, error } = await supabase
                 .rpc('get_attendee_self', {
-                    p_attendee_id: attendeeId
+                    p_attendee_id: attendeeId,
+                    p_edit_token: editToken
                 });
             return { data, error };
         }
@@ -247,7 +253,7 @@ export const eventService = {
     /**
      * Update attendee profile
      */
-    async updateAttendee(attendeeId, attendeeData) {
+    async updateAttendee(attendeeId, attendeeData, slug) {
         try {
             if (isDemoMode) {
                 let attendees = getLocalAttendees() || [];
@@ -269,9 +275,11 @@ export const eventService = {
                 
                 return { data: updatedAttendee, error: null };
             } else {
+                const editToken = localStorage.getItem(`circlelink_attendee_token_${slug}`);
                 const { data, error } = await supabase
                     .rpc('update_attendee_self', {
                         p_attendee_id: attendeeId,
+                        p_edit_token: editToken,
                         p_data: attendeeData
                     });
                 return { data, error };
@@ -354,21 +362,23 @@ export const eventService = {
     /**
      * Delete attendee profile directly (user self-delete)
      */
-    async deleteAttendeeDirect(attendeeId) {
+    async deleteAttendeeDirect(attendeeId, slug) {
         if (isDemoMode) {
             let attendees = getLocalAttendees();
             const filtered = attendees.filter(a => a.id !== attendeeId);
             saveLocalAttendees(filtered);
-            
+
             // Dispatch event for real-time tab syncing
-            window.dispatchEvent(new CustomEvent('circlelink-realtime-delete', { 
-                detail: { id: attendeeId } 
+            window.dispatchEvent(new CustomEvent('circlelink-realtime-delete', {
+                detail: { id: attendeeId }
             }));
             return { error: null };
         } else {
+            const editToken = localStorage.getItem(`circlelink_attendee_token_${slug}`);
             const { error } = await supabase
                 .rpc('delete_attendee_self', {
-                    p_attendee_id: attendeeId
+                    p_attendee_id: attendeeId,
+                    p_edit_token: editToken
                 });
             return { error };
         }
@@ -520,6 +530,22 @@ export const eventService = {
                 supabase.removeChannel(channel);
             };
         }
+    },
+
+    /**
+     * Rotate the host admin token (invalidates any previously shared token)
+     */
+    async rotateAdminToken(slug) {
+        if (isDemoMode) {
+            return { data: 'demo-token', error: null };
+        }
+        const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
+        const { data, error } = await supabase
+            .rpc('admin_regenerate_token', { p_slug: slug, p_token: token });
+        if (!error && data) {
+            localStorage.setItem(`circlelink_admin_token_${slug}`, data);
+        }
+        return { data, error };
     },
 
     /**

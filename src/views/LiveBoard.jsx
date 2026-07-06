@@ -4,6 +4,7 @@ import { eventService } from '../services/eventService';
 import confetti from 'canvas-confetti';
 import Logo from '../components/Logo';
 import { getTranslations, getLanguage, setLanguage } from '../services/translations';
+import { sanitizeUrl } from '../utils/sanitize';
 
 const avatarPresets = {
   'avatar-1': { icon: 'fa-user-astronaut', style: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' },
@@ -196,7 +197,7 @@ function LiveBoard() {
                 }}>
                   <i className="fa-solid fa-globe" style={{ color: '#06b6d4' }}></i>
                   <span>{lang === 'vi' ? 'Link phòng họp:' : 'Meeting Link:'}</span>
-                  <a href={eventData.meeting_link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-pink)', textDecoration: 'none', fontWeight: 'bold' }}>
+                  <a href={sanitizeUrl(eventData.meeting_link)} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-pink)', textDecoration: 'none', fontWeight: 'bold' }}>
                     {eventData.meeting_link} <i className="fa-solid fa-up-right-from-square" style={{ fontSize: '10px', marginLeft: '2px' }}></i>
                   </a>
                 </div>

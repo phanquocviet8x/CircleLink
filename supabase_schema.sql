@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.attendees (
   looking TEXT DEFAULT 'Không chia sẻ cụ thể.',
   help TEXT DEFAULT 'Không chia sẻ cụ thể.',
   privacy JSONB DEFAULT '{}'::jsonb, -- Privacy settings (e.g. { "phone": false })
+  edit_token TEXT NOT NULL DEFAULT gen_random_uuid()::text, -- Ownership secret; returned only to the guest at check-in. NEVER granted to clients.
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -111,6 +112,17 @@ GRANT SELECT (id, event_id, name, role, bio, avatar, looking, help, privacy, cre
 GRANT SELECT ON public.events_public TO anon, authenticated;
 GRANT SELECT ON public.attendees_public TO anon, authenticated;
 
+-- RLS SELECT policies (REQUIRED: security_invoker views need the caller to pass RLS on base tables).
+-- Actual protection of sensitive columns comes from the column-level GRANTs above (host_email,
+-- admin_token, edit_token are never granted). attendee_contacts has RLS enabled with NO policy on
+-- purpose — it is reachable only via the SECURITY DEFINER RPC functions below.
+DROP POLICY IF EXISTS "public_read_events" ON public.events;
+DROP POLICY IF EXISTS "public_read_attendees" ON public.attendees;
+CREATE POLICY "public_read_events" ON public.events
+  FOR SELECT TO anon, authenticated USING (true);
+CREATE POLICY "public_read_attendees" ON public.attendees
+  FOR SELECT TO anon, authenticated USING (true);
+
 -- Allow Realtime replication to subscribe to the attendees table safely
 DO $$
 BEGIN
@@ -135,9 +147,13 @@ DROP FUNCTION IF EXISTS public.admin_kick_attendee(UUID, TEXT, TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.admin_reset_event(UUID, TEXT, TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.checkin_attendee(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, JSONB) CASCADE;
 DROP FUNCTION IF EXISTS public.get_attendee_self(UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.get_attendee_self(UUID, TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.update_attendee_self(UUID, JSONB) CASCADE;
+DROP FUNCTION IF EXISTS public.update_attendee_self(UUID, TEXT, JSONB) CASCADE;
 DROP FUNCTION IF EXISTS public.delete_attendee_self(UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.delete_attendee_self(UUID, TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.get_attendee_contact(UUID, UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_regenerate_token(TEXT, TEXT) CASCADE;
 
 -- A. Create Event (Returns new event including admin_token to the creator)
 CREATE OR REPLACE FUNCTION public.create_event(
@@ -150,10 +166,29 @@ CREATE OR REPLACE FUNCTION public.create_event(
 )
 RETURNS public.events
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_new_event public.events;
+  v_recent INTEGER;
 BEGIN
+  IF p_slug IS NULL OR length(trim(p_slug)) = 0 OR p_title IS NULL OR length(trim(p_title)) = 0 THEN
+    RAISE EXCEPTION 'INVALID_INPUT';
+  END IF;
+
+  -- Reject unsafe meeting links (only http/https allowed)
+  IF p_meeting_link IS NOT NULL AND length(trim(p_meeting_link)) > 0
+     AND p_meeting_link !~* '^https?://' THEN
+    RAISE EXCEPTION 'INVALID_MEETING_LINK';
+  END IF;
+
+  -- Basic flood guard against scripted spam bursts
+  SELECT COUNT(*) INTO v_recent FROM public.events
+  WHERE created_at > now() - interval '10 seconds';
+  IF v_recent >= 5 THEN
+    RAISE EXCEPTION 'RATE_LIMITED';
+  END IF;
+
   INSERT INTO public.events (
     slug, title, description, host_email, event_type, meeting_link, admin_token
   ) VALUES (
@@ -178,10 +213,16 @@ CREATE OR REPLACE FUNCTION public.admin_update_event(
 )
 RETURNS public.events
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_updated_event public.events;
 BEGIN
+  IF p_meeting_link IS NOT NULL AND length(trim(p_meeting_link)) > 0
+     AND p_meeting_link !~* '^https?://' THEN
+    RAISE EXCEPTION 'INVALID_MEETING_LINK';
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM public.events WHERE slug = p_slug AND admin_token = p_token
   ) THEN
@@ -325,11 +366,13 @@ CREATE OR REPLACE FUNCTION public.checkin_attendee(
 )
 RETURNS JSONB
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_is_premium BOOLEAN;
   v_is_checkin_open BOOLEAN;
   v_count INTEGER;
+  v_recent INTEGER;
   v_new_attendee_id UUID;
   v_new_attendee JSONB;
 BEGIN
@@ -337,13 +380,20 @@ BEGIN
   SELECT is_premium, is_checkin_open INTO v_is_premium, v_is_checkin_open
   FROM public.events
   WHERE id = p_event_id;
-  
+
   IF NOT FOUND THEN
     RAISE EXCEPTION 'EVENT_NOT_FOUND';
   END IF;
-  
+
   IF NOT v_is_checkin_open THEN
     RAISE EXCEPTION 'CHECKIN_CLOSED';
+  END IF;
+
+  -- 1b. Basic per-event flood control (max 10 check-ins / 10s)
+  SELECT COUNT(*) INTO v_recent FROM public.attendees
+  WHERE event_id = p_event_id AND created_at > now() - interval '10 seconds';
+  IF v_recent >= 10 THEN
+    RAISE EXCEPTION 'RATE_LIMITED';
   END IF;
 
   -- 2. Check attendee limit for non-premium
@@ -382,11 +432,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- H. Get Guest's Own Profile (Using their secure attendee UUID)
+-- Requires the matching edit_token; returns NULL for a wrong/missing token.
 CREATE OR REPLACE FUNCTION public.get_attendee_self(
-  p_attendee_id UUID
+  p_attendee_id UUID,
+  p_edit_token TEXT
 )
 RETURNS JSONB
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_attendee JSONB;
@@ -394,16 +447,17 @@ DECLARE
 BEGIN
   SELECT to_jsonb(a.*) INTO v_attendee
   FROM public.attendees a
-  WHERE a.id = p_attendee_id;
-  
+  WHERE a.id = p_attendee_id AND a.edit_token = p_edit_token;
+
   IF v_attendee IS NULL THEN
     RETURN NULL;
   END IF;
-  
+
   SELECT contacts INTO v_contacts
   FROM public.attendee_contacts
   WHERE attendee_id = p_attendee_id;
-  
+
+  v_attendee := v_attendee - 'edit_token'; -- never expose the secret
   RETURN v_attendee || jsonb_build_object('contacts', COALESCE(v_contacts, '{}'::jsonb));
 END;
 $$ LANGUAGE plpgsql;
@@ -411,15 +465,23 @@ $$ LANGUAGE plpgsql;
 -- I. Update Guest's Own Profile (Using their secure attendee UUID)
 CREATE OR REPLACE FUNCTION public.update_attendee_self(
   p_attendee_id UUID,
+  p_edit_token TEXT,
   p_data JSONB
 )
 RETURNS JSONB
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_updated_row JSONB;
   v_contacts JSONB;
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.attendees WHERE id = p_attendee_id AND edit_token = p_edit_token
+  ) THEN
+    RAISE EXCEPTION 'NOT_AUTHORIZED';
+  END IF;
+
   -- Update attendees table
   UPDATE public.attendees
   SET
@@ -443,23 +505,30 @@ BEGIN
   -- Get updated contacts
   SELECT contacts INTO v_contacts FROM public.attendee_contacts WHERE attendee_id = p_attendee_id;
 
-  -- Return merged updated row
-  SELECT to_jsonb(a.*) || jsonb_build_object('contacts', COALESCE(v_contacts, '{}'::jsonb)) INTO v_updated_row
+  -- Return merged updated row (edit_token stripped)
+  SELECT (to_jsonb(a.*) - 'edit_token') || jsonb_build_object('contacts', COALESCE(v_contacts, '{}'::jsonb)) INTO v_updated_row
   FROM public.attendees a
   WHERE a.id = p_attendee_id;
-  
+
   RETURN v_updated_row;
 END;
 $$ LANGUAGE plpgsql;
 
--- J. Delete Guest's Own Profile (Using their secure attendee UUID)
+-- J. Delete Guest's Own Profile (Requires matching edit_token)
 CREATE OR REPLACE FUNCTION public.delete_attendee_self(
-  p_attendee_id UUID
+  p_attendee_id UUID,
+  p_edit_token TEXT
 )
 RETURNS VOID
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.attendees WHERE id = p_attendee_id AND edit_token = p_edit_token
+  ) THEN
+    RAISE EXCEPTION 'NOT_AUTHORIZED';
+  END IF;
   DELETE FROM public.attendees WHERE id = p_attendee_id;
 END;
 $$ LANGUAGE plpgsql;
@@ -472,6 +541,7 @@ CREATE OR REPLACE FUNCTION public.get_attendee_contact(
 )
 RETURNS JSONB
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 DECLARE
   v_contacts JSONB;
@@ -479,14 +549,14 @@ DECLARE
   v_result JSONB := '{}'::jsonb;
   v_key TEXT;
 BEGIN
-  -- 1. Verify requester is checked in to the same event
-  IF p_requester_id IS NOT NULL THEN
-    IF NOT EXISTS (
-      SELECT 1 FROM public.attendees 
-      WHERE id = p_requester_id AND event_id = p_event_id
-    ) THEN
-      RAISE EXCEPTION 'Requester is not checked into this event';
-    END IF;
+  -- 1. Requester is REQUIRED and must be checked into the same event.
+  --    (A NULL requester previously bypassed this check, allowing contact
+  --     harvesting by anyone who knew an attendee_id + event_id.)
+  IF p_requester_id IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.attendees
+    WHERE id = p_requester_id AND event_id = p_event_id
+  ) THEN
+    RAISE EXCEPTION 'NOT_AUTHORIZED: requester must be checked into this event';
   END IF;
 
   -- 2. Fetch contacts and privacy
@@ -510,6 +580,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- L. Rotate the host admin token (Authorized by current admin_token)
+CREATE OR REPLACE FUNCTION public.admin_regenerate_token(
+  p_slug TEXT,
+  p_token TEXT
+)
+RETURNS TEXT
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+DECLARE
+  v_new_token TEXT;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.events WHERE slug = p_slug AND admin_token = p_token) THEN
+    v_new_token := gen_random_uuid()::text;
+    UPDATE public.events SET admin_token = v_new_token WHERE slug = p_slug;
+    RETURN v_new_token;
+  ELSE
+    RAISE EXCEPTION 'Unauthorized admin token';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ==================== 5. RPC EXECUTION GRANTS ====================
 
 GRANT EXECUTE ON FUNCTION public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
@@ -518,10 +610,11 @@ GRANT EXECUTE ON FUNCTION public.admin_delete_event(TEXT, TEXT) TO anon, authent
 GRANT EXECUTE ON FUNCTION public.admin_get_attendees(UUID, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_kick_attendee(UUID, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_reset_event(UUID, TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_regenerate_token(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.checkin_attendee(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, JSONB) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.get_attendee_self(UUID) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.update_attendee_self(UUID, JSONB) TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.delete_attendee_self(UUID) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_attendee_self(UUID, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_attendee_self(UUID, TEXT, JSONB) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_attendee_self(UUID, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_attendee_contact(UUID, UUID, UUID) TO anon, authenticated;
 
 

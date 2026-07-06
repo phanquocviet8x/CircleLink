@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { eventService } from '../services/eventService';
 import Logo from '../components/Logo';
 import { getTranslations, getLanguage, setLanguage } from '../services/translations';
+import { sanitizeUrl } from '../utils/sanitize';
 
 const avatarPresets = {
   'avatar-1': { icon: 'fa-user-astronaut', style: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' },
@@ -298,7 +299,7 @@ function EventDirectory() {
             </div>
             
             <a 
-              href={eventData.meeting_link} 
+              href={sanitizeUrl(eventData.meeting_link)}
               target="_blank" 
               rel="noopener noreferrer" 
               className="btn btn-primary btn-glow"
@@ -575,7 +576,7 @@ function EventDirectory() {
                           }
                         }
                         return (
-                          <a key={def.key} href={url} target="_blank" rel="noopener noreferrer" className={`btn-contact-link ${def.class}`}>
+                          <a key={def.key} href={sanitizeUrl(url)} target="_blank" rel="noopener noreferrer" className={`btn-contact-link ${def.class}`}>
                             <i className={`fa-solid ${def.icon}`}></i>
                             <span>{def.title}: {val}</span>
                           </a>

@@ -64,7 +64,7 @@ function UserProfileSettings() {
         return;
       }
 
-      const { data: att, error: attErr } = await eventService.getAttendee(savedAttendeeId);
+      const { data: att, error: attErr } = await eventService.getAttendee(savedAttendeeId, slug);
       if (attErr || !att) {
         // Clean invalid attendee ID and redirect
         localStorage.removeItem(`circlelink_attendee_id_${slug}`);
@@ -103,7 +103,7 @@ function UserProfileSettings() {
 
     const { data, error } = await eventService.updateAttendee(attendee.id, {
       privacy: updatedPrivacy
-    });
+    }, slug);
 
     setSaving(false);
     if (error) {
@@ -124,7 +124,7 @@ function UserProfileSettings() {
     if (!confirmDelete) return;
 
     setDeleting(true);
-    const { error } = await eventService.deleteAttendeeDirect(attendee.id);
+    const { error } = await eventService.deleteAttendeeDirect(attendee.id, slug);
     setDeleting(false);
 
     if (error) {

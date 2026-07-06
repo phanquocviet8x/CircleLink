@@ -4,6 +4,7 @@ import { eventService } from '../services/eventService';
 import confetti from 'canvas-confetti';
 import Logo from '../components/Logo';
 import { getTranslations, getLanguage, setLanguage } from '../services/translations';
+import { sanitizeUrl } from '../utils/sanitize';
 
 const avatarPresets = {
   'avatar-1': { icon: 'fa-user-astronaut', style: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' },
@@ -86,7 +87,7 @@ function GuestCheckin() {
       // Check if user is already checked in on this device
       const savedAttendeeId = localStorage.getItem(`circlelink_attendee_id_${slug}`);
       if (savedAttendeeId) {
-        const { data: attendee, error: attendeeErr } = await eventService.getAttendee(savedAttendeeId);
+        const { data: attendee, error: attendeeErr } = await eventService.getAttendee(savedAttendeeId, slug);
         if (!attendeeErr && attendee) {
           setCheckedInAttendeeId(savedAttendeeId);
           setCheckedIn(true);
@@ -244,7 +245,7 @@ function GuestCheckin() {
       };
 
       if (isEditing && checkedInAttendeeId) {
-        const { error } = await eventService.updateAttendee(checkedInAttendeeId, attendeeData);
+        const { error } = await eventService.updateAttendee(checkedInAttendeeId, attendeeData, slug);
         if (error) {
           alert((lang === 'vi' ? "Lỗi cập nhật profile: " : "Profile update error: ") + error.message);
         } else {
@@ -265,7 +266,7 @@ function GuestCheckin() {
           return;
         }
 
-        const { data, error } = await eventService.addAttendee(eventData.id, attendeeData);
+        const { data, error } = await eventService.addAttendee(eventData.id, attendeeData, slug);
 
         if (error) {
           if (error.message === 'LIMIT_EXCEEDED') {
@@ -434,7 +435,7 @@ function GuestCheckin() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '320px', margin: '0 auto' }}>
               {eventData.event_type !== 'offline' && eventData.meeting_link && (
                 <a 
-                  href={eventData.meeting_link} 
+                  href={sanitizeUrl(eventData.meeting_link)}
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="btn btn-primary btn-glow"

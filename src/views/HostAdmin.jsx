@@ -202,6 +202,25 @@ function HostAdmin() {
     }
   };
 
+  const handleRotateToken = async () => {
+    const confirmRotate = confirm(
+      lang === 'vi'
+        ? "Tạo lại mã quản trị (admin token)?\nMọi liên kết/token đã chia sẻ trước đây sẽ NGỪNG hoạt động. Thiết bị hiện tại của bạn vẫn giữ quyền quản trị."
+        : "Regenerate the admin token?\nAny previously shared token/link will STOP working. This device keeps admin access."
+    );
+    if (!confirmRotate) return;
+
+    const { data, error } = await eventService.rotateAdminToken(slug);
+    if (error) {
+      alert((lang === 'vi' ? "Lỗi khi tạo lại token: " : "Error regenerating token: ") + error.message);
+    } else {
+      alert(
+        (lang === 'vi' ? "Đã tạo mã quản trị mới:\n\n" : "New admin token generated:\n\n") + data +
+        (lang === 'vi' ? "\n\nHãy lưu lại mã này ở nơi an toàn." : "\n\nStore it somewhere safe.")
+      );
+    }
+  };
+
   const handleDeleteEvent = async () => {
     const confirmDelete = confirm(
       lang === 'vi'
@@ -681,6 +700,20 @@ function HostAdmin() {
               </button>
             </div>
             
+            {/* Security: Rotate admin token */}
+            <div className="glass" style={{ padding: '20px', borderRadius: '16px', marginTop: '24px' }}>
+              <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '8px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <i className="fa-solid fa-key"></i>
+                {lang === 'vi' ? 'Bảo mật: Mã quản trị' : 'Security: Admin Token'}
+              </h4>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12.5px', marginBottom: '16px', lineHeight: '1.4' }}>
+                {lang === 'vi' ? 'Nếu mã quản trị bị lộ, hãy tạo lại. Mọi token/liên kết đã chia sẻ trước đó sẽ ngừng hoạt động; thiết bị này vẫn giữ quyền quản trị.' : 'If your admin token is exposed, regenerate it. Any previously shared token/link stops working; this device keeps admin access.'}
+              </p>
+              <button onClick={handleRotateToken} className="btn btn-outline" style={{ width: '100%', fontWeight: 'bold' }}>
+                <i className="fa-solid fa-rotate"></i> {lang === 'vi' ? 'Tạo lại mã quản trị' : 'Regenerate admin token'}
+              </button>
+            </div>
+
             {/* Danger Zone: Delete Event */}
             <div className="glass" style={{ padding: '20px', borderRadius: '16px', marginTop: '24px', background: 'rgba(220, 38, 38, 0.02)', border: '1px solid rgba(220, 38, 38, 0.15)' }}>
               <h4 style={{ fontFamily: 'var(--font-heading)', fontWeight: '700', marginBottom: '8px', color: '#ef4444', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
