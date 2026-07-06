@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { eventService } from '../services/eventService';
 import Logo from '../components/Logo';
 import { getTranslations, getLanguage, setLanguage } from '../services/translations';
@@ -504,6 +504,35 @@ function Home() {
               )}
             </button>
           </form>
+          
+          {/* Disclaimer */}
+          <div style={{ marginTop: '16px', fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+            {lang === 'vi' ? (
+              <span>
+                Bằng cách tạo sự kiện, bạn đồng ý với{' '}
+                <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
+                  Điều khoản dịch vụ
+                </Link>{' '}
+                &{' '}
+                <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
+                  Chính sách bảo mật
+                </Link>
+                , đồng thời đồng ý cho phép CircleLink lưu trữ dữ liệu sự kiện trên Supabase.
+              </span>
+            ) : (
+              <span>
+                By creating an event, you agree to our{' '}
+                <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
+                  Terms of Service
+                </Link>{' '}
+                &{' '}
+                <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
+                  Privacy Policy
+                </Link>
+                , and consent to event data storage on Supabase.
+              </span>
+            )}
+          </div>
         </main>
 
         {/* Features grid */}
@@ -580,6 +609,22 @@ function Home() {
         </section>
       </div>
 
+      {/* Footer */}
+      <footer style={{ textAlign: 'center', padding: '40px 0 50px 0', borderTop: '1px solid var(--border-color)', marginTop: '60px', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '10px', fontSize: '14px' }}>
+          <Link to="/terms" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalTerms}
+          </Link>
+          <span style={{ color: 'var(--border-color)' }}>|</span>
+          <Link to="/privacy" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalPrivacy}
+          </Link>
+        </div>
+        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+          © {new Date().getFullYear()} CircleLink. All rights reserved. Powered by Supabase.
+        </p>
+      </footer>
+
       {/* Host Login Modal Dialog */}
       {showLoginModal && (
         <div className="login-modal-overlay">
@@ -641,6 +686,35 @@ function Home() {
               </svg>
               <span>{t.loginWithGoogle}</span>
             </button>
+
+            {/* Login Consent Disclaimer */}
+            <div style={{ marginTop: '20px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+              {lang === 'vi' ? (
+                <span>
+                  Bằng việc đăng nhập, bạn đồng ý với{' '}
+                  <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }} onClick={() => setShowLoginModal(false)}>
+                    Điều khoản
+                  </Link>{' '}
+                  &{' '}
+                  <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }} onClick={() => setShowLoginModal(false)}>
+                    Chính sách bảo mật
+                  </Link>{' '}
+                  của chúng tôi, đồng thời chấp thuận xử lý dữ liệu trên Supabase.
+                </span>
+              ) : (
+                <span>
+                  By logging in, you agree to our{' '}
+                  <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }} onClick={() => setShowLoginModal(false)}>
+                    Terms
+                  </Link>{' '}
+                  &{' '}
+                  <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }} onClick={() => setShowLoginModal(false)}>
+                    Privacy Policy
+                  </Link>
+                  , and consent to Supabase data processing.
+                </span>
+              )}
+            </div>
           </div>
         </div>
       )}

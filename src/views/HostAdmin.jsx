@@ -117,6 +117,10 @@ function HostAdmin() {
       },
       () => {
         setAttendeesList([]);
+      },
+      undefined,
+      (updatedAttendee) => {
+        setAttendeesList(prev => prev.map(a => a.id === updatedAttendee.id ? updatedAttendee : a));
       }
     );
 

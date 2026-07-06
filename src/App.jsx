@@ -5,6 +5,8 @@ import LiveBoard from './views/LiveBoard';
 import HostAdmin from './views/HostAdmin';
 import GuestCheckin from './views/GuestCheckin';
 import EventDirectory from './views/EventDirectory';
+import TermsOfService from './views/TermsOfService';
+import PrivacyPolicy from './views/PrivacyPolicy';
 
 function App() {
   return (
@@ -15,6 +17,8 @@ function App() {
         <Route path="/event/:slug/admin" element={<HostAdmin />} />
         <Route path="/checkin/:slug" element={<GuestCheckin />} />
         <Route path="/directory/:slug" element={<EventDirectory />} />
+        <Route path="/terms" element={<TermsOfService />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
       </Routes>
     </Router>
   );

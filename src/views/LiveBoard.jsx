@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { eventService } from '../services/eventService';
-import { isDemoMode } from '../supabaseClient';
 import confetti from 'canvas-confetti';
 import Logo from '../components/Logo';
 import { getTranslations, getLanguage, setLanguage } from '../services/translations';
@@ -15,20 +14,12 @@ const avatarPresets = {
   'avatar-6': { icon: 'fa-robot', style: 'linear-gradient(135deg, #8A2387, #E94057)' }
 };
 
-const mockLib = [
-  { name: 'Hoàng Lâm', role: 'Founder', bio: 'AI SaaS Founder. Tìm kiếm CTO.', avatar: 'avatar-3', looking: 'CTO, Seed Capital', help: 'SaaS Pitching, Fundraising', contacts: { phone: '0901234567', email: 'lam@hrtech.ai' }, privacy: { phone: true, email: true } },
-  { name: 'Minh Thư', role: 'Designer', bio: 'UI/UX Designer Web3 & Mobile.', avatar: 'avatar-5', looking: 'Remote Project, Dev Partner', help: 'UI/UX Audits, Figma Systems', contacts: { email: 'thu@design.co' }, privacy: { email: true } },
-  { name: 'Quốc Bảo', role: 'Developer', bio: 'Fullstack Dev. React, Next.js & Supabase.', avatar: 'avatar-1', looking: 'AI Startup, Freelance Gig', help: 'Vite Setup, SQL Queries', contacts: { phone: '0988776655', email: 'bao@dev.js' }, privacy: { phone: true, email: true } },
-  { name: 'Thanh Hằng', role: 'Marketer', bio: 'Growth Marketer. TikTok Ads specialist.', avatar: 'avatar-4', looking: 'Early Stage App, Consulting', help: 'SEO Planning, Ad Campaigns', contacts: { email: 'hang@growth.agency' }, privacy: { email: true } }
-];
-
 function LiveBoard() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [eventData, setEventData] = useState(null);
   const [attendeesList, setAttendeesList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [simulating, setSimulating] = useState(false);
   
   // Multilingual state
   const [lang, setLang] = useState(getLanguage());
@@ -96,6 +87,9 @@ function LiveBoard() {
       },
       (updatedEvent) => {
         setEventData(updatedEvent);
+      },
+      (updatedAttendee) => {
+        setAttendeesList(prev => prev.map(a => a.id === updatedAttendee.id ? updatedAttendee : a));
       }
     );
 
@@ -104,65 +98,7 @@ function LiveBoard() {
     };
   }, [eventData]);
 
-  const simulateGuest = async () => {
-    if (!eventData || !eventData.is_checkin_open) {
-      alert(lang === 'vi' ? "Cổng check-in đang đóng. Hãy mở cổng check-in trong Bảng Quản Trị trước!" : "Check-in gate is closed. Please open it in Host Admin first!");
-      return { error: { message: "CLOSED" } };
-    }
 
-    const randPreset = mockLib[Math.floor(Math.random() * mockLib.length)];
-    const firstNames = ['Dương', 'Phát', 'Trinh', 'Kiên', 'Hà', 'Lan', 'Nam', 'Trang', 'Khánh', 'Đạt'];
-    const lastNames = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Huỳnh', 'Phan', 'Vũ', 'Đặng'];
-    const fakeName = lastNames[Math.floor(Math.random() * lastNames.length)] + ' ' + 
-                     firstNames[Math.floor(Math.random() * firstNames.length)] + 
-                     ` (${randPreset.role})`;
-
-    const contacts = { ...randPreset.contacts };
-    const privacy = { ...randPreset.privacy };
-
-    if (eventData.require_phone) {
-      contacts.phone = '09' + Math.floor(10000000 + Math.random() * 90000000);
-      privacy.phone = true;
-    }
-
-    const newGuestData = {
-      name: fakeName,
-      role: randPreset.role,
-      bio: randPreset.bio,
-      avatar: randPreset.avatar,
-      looking: randPreset.looking,
-      help: randPreset.help,
-      contacts: contacts,
-      privacy: privacy
-    };
-
-    const res = await eventService.addAttendee(eventData.id, newGuestData);
-    if (res.error && res.error.message === 'LIMIT_EXCEEDED') {
-      alert(lang === 'vi'
-        ? '⚠️ Bản MIỄN PHÍ giới hạn tối đa 50 khách check-in! Vui lòng nâng cấp lên gói Premium để tiếp tục thêm thành viên.'
-        : '⚠️ FREE plan limit reached (50 check-ins)! Please upgrade to Premium to add more guests.'
-      );
-    }
-    return res;
-  };
-
-  const simulateMultipleGuests = async () => {
-    setSimulating(true);
-    let count = 0;
-    const interval = setInterval(async () => {
-      const { error } = await simulateGuest();
-      if (error) {
-        clearInterval(interval);
-        setSimulating(false);
-        return;
-      }
-      count++;
-      if (count >= 5) {
-        clearInterval(interval);
-        setSimulating(false);
-      }
-    }, 400);
-  };
 
   if (loading) {
     return (

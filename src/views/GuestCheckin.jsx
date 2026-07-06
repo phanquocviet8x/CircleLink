@@ -25,6 +25,8 @@ function GuestCheckin() {
   const [lang, setLang] = useState(getLanguage());
   const [checkedIn, setCheckedIn] = useState(false);
   const [limitExceeded, setLimitExceeded] = useState(false);
+  const [checkedInAttendeeId, setCheckedInAttendeeId] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Form Fields
   const [avatar, setAvatar] = useState('avatar-1');
@@ -50,6 +52,7 @@ function GuestCheckin() {
   const [shareInstagram, setShareInstagram] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
+  const [consent, setConsent] = useState(false);
 
   const t = getTranslations(lang);
 
@@ -80,6 +83,42 @@ function GuestCheckin() {
         }
       }
 
+      // Check if user is already checked in on this device
+      const savedAttendeeId = localStorage.getItem(`circlelink_attendee_id_${slug}`);
+      if (savedAttendeeId) {
+        const { data: attendee, error: attendeeErr } = await eventService.getAttendee(savedAttendeeId);
+        if (!attendeeErr && attendee) {
+          setCheckedInAttendeeId(savedAttendeeId);
+          setCheckedIn(true);
+          // Prefill state
+          setAvatar(attendee.avatar || 'avatar-1');
+          setFullname(attendee.name || '');
+          setRole(attendee.role || '');
+          setBio(attendee.bio || '');
+          setLooking(attendee.looking || '');
+          setHelp(attendee.help || '');
+          if (attendee.contacts) {
+            setPhone(attendee.contacts.phone || '');
+            setEmail(attendee.contacts.email || '');
+            setTelegram(attendee.contacts.telegram || '');
+            setFacebook(attendee.contacts.facebook || '');
+            setLinkedin(attendee.contacts.linkedin || '');
+            setInstagram(attendee.contacts.instagram || '');
+          }
+          if (attendee.privacy) {
+            setSharePhone(attendee.privacy.phone !== false);
+            setShareEmail(attendee.privacy.email !== false);
+            setShareTelegram(attendee.privacy.telegram !== false);
+            setShareFacebook(attendee.privacy.facebook !== false);
+            setShareLinkedin(attendee.privacy.linkedin !== false);
+            setShareInstagram(attendee.privacy.instagram !== false);
+          }
+        } else {
+          // If attendee no longer exists on DB, clear invalid localStorage
+          localStorage.removeItem(`circlelink_attendee_id_${slug}`);
+        }
+      }
+
       setLoading(false);
     }
     loadEvent();
@@ -100,7 +139,27 @@ function GuestCheckin() {
           });
         }
       },
-      (_deletedId) => {
+      (deletedId) => {
+        if (checkedInAttendeeId && deletedId === checkedInAttendeeId) {
+          setCheckedIn(false);
+          setCheckedInAttendeeId(null);
+          setIsEditing(false);
+          localStorage.removeItem(`circlelink_attendee_id_${slug}`);
+          // Clear form fields
+          setFullname('');
+          setRole('');
+          setBio('');
+          setLooking('');
+          setHelp('');
+          setPhone('');
+          setEmail('');
+          setTelegram('');
+          setFacebook('');
+          setLinkedin('');
+          setInstagram('');
+          alert(lang === 'vi' ? 'Bạn đã bị xóa khỏi sự kiện bởi Host.' : 'You have been removed from the event by the Host.');
+        }
+
         if (!eventData.is_premium) {
           eventService.getAttendees(eventData.id).then(({ data }) => {
             if (data && data.length < 50) {
@@ -111,6 +170,10 @@ function GuestCheckin() {
       },
       () => {
         setLimitExceeded(false);
+        setCheckedIn(false);
+        setCheckedInAttendeeId(null);
+        setIsEditing(false);
+        localStorage.removeItem(`circlelink_attendee_id_${slug}`);
       },
       (updatedEvent) => {
         setEventData(updatedEvent);
@@ -131,7 +194,7 @@ function GuestCheckin() {
     return () => {
       unsubscribe();
     };
-  }, [eventData]);
+  }, [eventData, checkedInAttendeeId, slug, lang]);
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -142,14 +205,8 @@ function GuestCheckin() {
     e.preventDefault();
     if (!fullname || !role || !bio) return;
 
-    // Client-side rate limiting to prevent bot flood
-    const lastCheckinTime = localStorage.getItem(`last_checkin_time_${slug}`);
-    const now = Date.now();
-    if (lastCheckinTime && (now - parseInt(lastCheckinTime)) < 15000) {
-      showToast(lang === 'vi' 
-        ? '⚠️ Bạn đang check-in quá nhanh. Vui lòng đợi 15 giây.' 
-        : '⚠️ You are checking in too fast. Please wait 15 seconds.'
-      );
+    if (!consent && !isEditing) {
+      showToast(lang === 'vi' ? t.consentRequiredError : t.consentRequiredError);
       return;
     }
 
@@ -186,33 +243,60 @@ function GuestCheckin() {
         }
       };
 
-      const { error } = await eventService.addAttendee(eventData.id, attendeeData);
-
-      if (error) {
-        if (error.message === 'LIMIT_EXCEEDED') {
-          setLimitExceeded(true);
+      if (isEditing && checkedInAttendeeId) {
+        const { error } = await eventService.updateAttendee(checkedInAttendeeId, attendeeData);
+        if (error) {
+          alert((lang === 'vi' ? "Lỗi cập nhật profile: " : "Profile update error: ") + error.message);
         } else {
-          alert((lang === 'vi' ? "Lỗi check-in: " : "Check-in error: ") + error.message);
+          setCheckedIn(true);
+          setIsEditing(false);
+          showToast(t.checkinUpdateSuccess);
         }
       } else {
-        // Trigger confetti explosion!
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+        // Client-side rate limiting to prevent bot flood
+        const lastCheckinTime = localStorage.getItem(`last_checkin_time_${slug}`);
+        const now = Date.now();
+        if (lastCheckinTime && (now - parseInt(lastCheckinTime)) < 15000) {
+          showToast(lang === 'vi' 
+            ? '⚠️ Bạn đang check-in quá nhanh. Vui lòng đợi 15 giây.' 
+            : '⚠️ You are checking in too fast. Please wait 15 seconds.'
+          );
+          setSubmitting(false);
+          return;
+        }
 
-        // Save successful check-in timestamp for rate limit cooldown
-        try {
-          localStorage.setItem(`last_checkin_time_${slug}`, Date.now().toString());
-        } catch (_) {}
+        const { data, error } = await eventService.addAttendee(eventData.id, attendeeData);
 
-        setCheckedIn(true);
-        showToast(t.checkinSuccessConfetti);
+        if (error) {
+          if (error.message === 'LIMIT_EXCEEDED') {
+            setLimitExceeded(true);
+          } else {
+            alert((lang === 'vi' ? "Lỗi check-in: " : "Check-in error: ") + error.message);
+          }
+        } else {
+          // Trigger confetti explosion!
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+          });
+
+          // Save successful check-in timestamp for rate limit cooldown
+          try {
+            localStorage.setItem(`last_checkin_time_${slug}`, Date.now().toString());
+            if (data && data.id) {
+              localStorage.setItem(`circlelink_attendee_id_${slug}`, data.id);
+              setCheckedInAttendeeId(data.id);
+            }
+          } catch (_) {}
+
+          setCheckedIn(true);
+          showToast(t.checkinSuccessConfetti);
+        }
       }
     } catch (err) {
-      console.error("Checkin submit error:", err);
-      alert((lang === 'vi' ? "Có lỗi xảy ra khi gửi thông tin check-in: " : "An error occurred during check-in: ") + err.message);
+      console.error("Checkin submit/update error:", err);
+      alert((lang === 'vi' ? "Có lỗi xảy ra: " : "An error occurred: ") + err.message);
     } finally {
       setSubmitting(false);
     }
@@ -312,7 +396,7 @@ function GuestCheckin() {
     );
   }
 
-  if (checkedIn) {
+  if (checkedIn && !isEditing) {
     return (
       <div className="warm-theme">
         <div className="bg-blob blob-1"></div>
@@ -384,6 +468,25 @@ function GuestCheckin() {
               >
                 <i className="fa-solid fa-address-book"></i> {t.checkinBtnGoDirectory}
               </Link>
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="btn btn-outline"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  padding: '12px',
+                  borderRadius: '24px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  border: '1px solid var(--border-color)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: 'var(--text-primary)'
+                }}
+              >
+                <i className="fa-solid fa-pen-to-square"></i> {t.checkinEditProfileBtn}
+              </button>
               <Link 
                 to="/" 
                 className="btn btn-outline"
@@ -435,10 +538,14 @@ function GuestCheckin() {
         <div className="checkin-container glass">
           <div className="form-header">
             <span style={{ fontSize: '12px', color: 'var(--accent-violet)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              {t.checkinTitle}
+              {isEditing ? t.checkinEditProfileTitle : t.checkinTitle}
             </span>
             <h2 style={{ marginTop: '6px' }}>{eventData.title}</h2>
-            <p>{lang === 'vi' ? 'Chia sẻ thông tin để kết nối cùng mọi người trong sự kiện.' : 'Share your profile to connect with others at the event.'}</p>
+            <p>
+              {isEditing 
+                ? (lang === 'vi' ? 'Cập nhật lại thông tin profile của bạn.' : 'Update your profile information.')
+                : (lang === 'vi' ? 'Chia sẻ thông tin để kết nối cùng mọi người trong sự kiện.' : 'Share your profile to connect with others at the event.')}
+            </p>
           </div>
 
           {toastMsg && (
@@ -685,16 +792,93 @@ function GuestCheckin() {
               </div>
             </div>
 
+            {/* Consent Box */}
+            {!isEditing && (
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px', alignItems: 'flex-start', textAlign: 'left' }}>
+                <input 
+                  type="checkbox" 
+                  id="supabase-consent" 
+                  checked={consent} 
+                  onChange={(e) => setConsent(e.target.checked)} 
+                  style={{ marginTop: '4px', cursor: 'pointer', accentColor: 'var(--accent-purple)', width: '16px', height: '16px' }}
+                  required
+                />
+                <label htmlFor="supabase-consent" style={{ fontSize: '13px', color: 'var(--text-secondary)', cursor: 'pointer', lineHeight: '1.4' }}>
+                  {lang === 'vi' ? (
+                    <span>
+                      Tôi đồng ý với{' '}
+                      <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
+                        Điều khoản dịch vụ
+                      </Link>{' '}
+                      &{' '}
+                      <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
+                        Chính sách bảo mật
+                      </Link>
+                      , đồng thời cho phép CircleLink lưu trữ và xử lý thông tin này trên hệ thống cơ sở dữ liệu Supabase.
+                    </span>
+                  ) : (
+                    <span>
+                      I agree to the{' '}
+                      <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
+                        Terms of Service
+                      </Link>{' '}
+                      &{' '}
+                      <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
+                        Privacy Policy
+                      </Link>
+                      , and consent to CircleLink storing and processing this data on Supabase.
+                    </span>
+                  )}
+                </label>
+              </div>
+            )}
+
             <button type="submit" className="btn btn-primary btn-glow" style={{ width: '100%', marginTop: '24px' }} disabled={submitting}>
               {submitting ? (
                 <span><i className="fa-solid fa-spinner fa-spin"></i> {lang === 'vi' ? 'Đang gửi...' : 'Submitting...'}</span>
               ) : (
-                <span><i className="fa-solid fa-circle-check"></i> {t.checkinFormSubmit}</span>
+                <span>
+                  <i className="fa-solid fa-circle-check"></i>{' '}
+                  {isEditing ? (lang === 'vi' ? 'Cập nhật Profile' : 'Update Profile') : t.checkinFormSubmit}
+                </span>
               )}
             </button>
+            {isEditing && (
+              <button 
+                type="button" 
+                className="btn btn-outline" 
+                style={{ 
+                  width: '100%', 
+                  marginTop: '12px', 
+                  borderRadius: '24px', 
+                  padding: '12px', 
+                  fontWeight: 'bold',
+                  cursor: 'pointer' 
+                }} 
+                onClick={() => setIsEditing(false)}
+              >
+                {t.checkinCancelEditBtn}
+              </button>
+            )}
           </form>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer style={{ textAlign: 'center', padding: '24px 0 40px 0', borderTop: '1px solid var(--border-color)', marginTop: '40px', width: '100%' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '10px', fontSize: '13px' }}>
+          <Link to="/terms" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalTerms}
+          </Link>
+          <span style={{ color: 'var(--border-color)' }}>|</span>
+          <Link to="/privacy" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
+            {t.legalPrivacy}
+          </Link>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+          © {new Date().getFullYear()} CircleLink. All rights reserved. Powered by Supabase.
+        </p>
+      </footer>
     </div>
   );
 }

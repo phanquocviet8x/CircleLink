@@ -219,6 +219,63 @@ export const eventService = {
     },
 
     /**
+     * Get a single attendee by ID
+     */
+    async getAttendee(attendeeId) {
+        if (isDemoMode) {
+            const attendees = getLocalAttendees() || [];
+            const attendee = attendees.find(a => a && a.id === attendeeId);
+            return { data: attendee || null, error: attendee ? null : { message: "Attendee not found." } };
+        } else {
+            const { data, error } = await supabase
+                .from('attendees')
+                .select('*')
+                .eq('id', attendeeId)
+                .maybeSingle();
+            return { data, error };
+        }
+    },
+
+    /**
+     * Update attendee profile
+     */
+    async updateAttendee(attendeeId, attendeeData) {
+        try {
+            if (isDemoMode) {
+                let attendees = getLocalAttendees() || [];
+                const idx = attendees.findIndex(a => a && a.id === attendeeId);
+                if (idx === -1) {
+                    return { data: null, error: { message: "Attendee not found." } };
+                }
+                const updatedAttendee = {
+                    ...attendees[idx],
+                    ...attendeeData
+                };
+                attendees[idx] = updatedAttendee;
+                saveLocalAttendees(attendees);
+                
+                // Dispatch dynamic window event for real-time tab syncing
+                window.dispatchEvent(new CustomEvent('circlelink-realtime-update', { 
+                    detail: updatedAttendee 
+                }));
+                
+                return { data: updatedAttendee, error: null };
+            } else {
+                const { data, error } = await supabase
+                    .from('attendees')
+                    .update(attendeeData)
+                    .eq('id', attendeeId)
+                    .select()
+                    .single();
+                return { data, error };
+            }
+        } catch (err) {
+            console.error("Error in updateAttendee:", err);
+            return { data: null, error: { message: err.message || "Unknown error" } };
+        }
+    },
+
+    /**
      * Kick an attendee from the event
      */
     async kickAttendee(attendeeId, slug) {
@@ -290,7 +347,7 @@ export const eventService = {
     /**
      * Subscribe to real-time additions and removals of attendees
      */
-    subscribeToAttendees(eventId, onInsert, onDelete, onReset, onEventUpdate) {
+    subscribeToAttendees(eventId, onInsert, onDelete, onReset, onEventUpdate, onUpdateAttendee) {
         if (isDemoMode) {
             // Local listeners for tab-to-tab sync
             const handleInsert = (e) => {
@@ -314,11 +371,18 @@ export const eventService = {
                     onEventUpdate(e.detail);
                 }
             };
+
+            const handleUpdate = (e) => {
+                if (e.detail.event_id === eventId && onUpdateAttendee) {
+                    onUpdateAttendee(e.detail);
+                }
+            };
             
             window.addEventListener('circlelink-realtime-insert', handleInsert);
             window.addEventListener('circlelink-realtime-delete', handleDelete);
             window.addEventListener('circlelink-realtime-reset', handleReset);
             window.addEventListener('circlelink-realtime-event-update', handleEventUpdate);
+            window.addEventListener('circlelink-realtime-update', handleUpdate);
             
             // Return unsubscribe function
             return () => {
@@ -326,6 +390,7 @@ export const eventService = {
                 window.removeEventListener('circlelink-realtime-delete', handleDelete);
                 window.removeEventListener('circlelink-realtime-reset', handleReset);
                 window.removeEventListener('circlelink-realtime-event-update', handleEventUpdate);
+                window.removeEventListener('circlelink-realtime-update', handleUpdate);
             };
         } else {
             // Supabase Database Channel Subscription
@@ -338,6 +403,16 @@ export const eventService = {
                     filter: `event_id=eq.${eventId}` 
                 }, payload => {
                     onInsert(payload.new);
+                })
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'attendees', 
+                    filter: `event_id=eq.${eventId}` 
+                }, payload => {
+                    if (onUpdateAttendee) {
+                        onUpdateAttendee(payload.new);
+                    }
                 })
                 .on('postgres_changes', { 
                     event: 'DELETE', 

@@ -62,4 +62,25 @@ ALTER TABLE public.attendees DISABLE ROW LEVEL SECURITY;
 -- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS meeting_link TEXT;
 -- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS is_premium BOOLEAN DEFAULT false;
 
+-- 4. Create the public.events_public View with security_invoker enabled
+-- (This fixes the 'Security Definer View' warning in Supabase Advisor)
+CREATE OR REPLACE VIEW public.events_public 
+WITH (security_invoker = true) 
+AS 
+SELECT 
+  id, 
+  slug, 
+  title, 
+  description, 
+  host_email, 
+  host_id, 
+  is_checkin_open, 
+  require_phone, 
+  is_premium, 
+  event_type, 
+  meeting_link, 
+  created_at 
+FROM public.events;
+
+
 

@@ -151,6 +151,10 @@ const translations = {
     checkinSuccessRedirect: "Đang chuyển hướng sang danh bạ...",
     checkinLimitTitle: "Đạt Giới Hạn Check-in ⚠️",
     checkinLimitDesc: "Sự kiện này hiện đang chạy gói Miễn Phí và đã đạt giới hạn tối đa 50 lượt check-in. Vui lòng liên hệ Host hoặc Ban tổ chức để nâng cấp lên bản Premium nhằm tiếp tục check-in.",
+    checkinEditProfileBtn: "Chỉnh sửa Profile của tôi",
+    checkinEditProfileTitle: "Chỉnh sửa Profile",
+    checkinUpdateSuccess: "Cập nhật profile thành công!",
+    checkinCancelEditBtn: "Hủy chỉnh sửa",
 
     // EVENT DIRECTORY VIEW
     dirTitle: "Danh Bạ Sự Kiện",
@@ -165,7 +169,15 @@ const translations = {
     dirCardBtnLike: "Thích",
     dirNoResults: "Không tìm thấy khách mời nào phù hợp.",
     dirLoading: "Đang tải danh bạ sự kiện...",
-    dirExportSuccess: "Đã xuất file vCard thành công!"
+    dirExportSuccess: "Đã xuất file vCard thành công!",
+
+    // LEGAL & CONSENT
+    legalTerms: "Điều khoản dịch vụ",
+    legalPrivacy: "Chính sách bảo mật",
+    consentCheckboxText: "Tôi đồng ý với Điều khoản dịch vụ & Chính sách bảo mật, đồng thời cho phép CircleLink lưu trữ và xử lý dữ liệu này trên Supabase.",
+    hostConsentDisclaimer: "Bằng cách tạo sự kiện hoặc đăng nhập, bạn đồng ý với Điều khoản dịch vụ & Chính sách bảo mật của chúng tôi và đồng ý cho phép lưu trữ dữ liệu trên Supabase.",
+    backToHome: "Quay lại Trang chủ",
+    consentRequiredError: "⚠️ Bạn phải đồng ý với Điều khoản và Chính sách bảo mật để tiếp tục."
   },
   en: {
     // COMMON
@@ -317,6 +329,10 @@ const translations = {
     checkinSuccessRedirect: "Redirecting to directory...",
     checkinLimitTitle: "Check-in Limit Reached ⚠️",
     checkinLimitDesc: "This event is currently on the Free plan and has reached the limit of 50 check-in guests. Please contact the Host or organizer to upgrade to the Premium plan to enable more check-ins.",
+    checkinEditProfileBtn: "Edit My Profile",
+    checkinEditProfileTitle: "Edit Profile",
+    checkinUpdateSuccess: "Profile updated successfully!",
+    checkinCancelEditBtn: "Cancel Edit",
 
     // EVENT DIRECTORY VIEW
     dirTitle: "Event Directory",
@@ -331,7 +347,15 @@ const translations = {
     dirCardBtnLike: "Like",
     dirNoResults: "No matching guests found.",
     dirLoading: "Loading event directory...",
-    dirExportSuccess: "vCard file exported successfully!"
+    dirExportSuccess: "vCard file exported successfully!",
+
+    // LEGAL & CONSENT
+    legalTerms: "Terms of Service",
+    legalPrivacy: "Privacy Policy",
+    consentCheckboxText: "I agree to the Terms of Service & Privacy Policy, and consent to CircleLink storing and processing this data on Supabase.",
+    hostConsentDisclaimer: "By creating an event or signing in, you agree to our Terms of Service & Privacy Policy and consent to data storage on Supabase.",
+    backToHome: "Back to Home",
+    consentRequiredError: "⚠️ You must agree to the Terms and Privacy Policy to proceed."
   }
 };
 
