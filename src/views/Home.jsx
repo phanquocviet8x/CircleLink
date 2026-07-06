@@ -13,6 +13,8 @@ function Home() {
   const [error, setError] = useState('');
   const [eventType, setEventType] = useState('offline');
   const [meetingLink, setMeetingLink] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [durationDays, setDurationDays] = useState('7');
   
   // Multilingual State ('vi' or 'en')
   const [lang, setLang] = useState(getLanguage());
@@ -25,6 +27,9 @@ function Home() {
   const [hostEmail, setHostEmail] = useState(localStorage.getItem('circlelink_host_email') || '');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  // The event this host currently owns (1 event per email at a time)
+  const [myEvent, setMyEvent] = useState(null);
 
   // Ref hooks for smooth scrolling
   const formRef = useRef(null);
@@ -64,6 +69,44 @@ function Home() {
     };
   }, []);
 
+  // Fetch the event this host is currently hosting (if any)
+  useEffect(() => {
+    if (!isLoggedIn || !hostEmail) {
+      setMyEvent(null);
+      return;
+    }
+    let cancelled = false;
+    eventService.getMyHostedEvent(hostEmail).then(({ data }) => {
+      if (!cancelled) setMyEvent(data || null);
+    });
+    return () => { cancelled = true; };
+  }, [isLoggedIn, hostEmail]);
+
+  // Map raw service errors to friendly bilingual messages
+  const friendlyCreateError = (serviceError) => {
+    const msg = serviceError?.message || '';
+    if (msg.includes('HOST_EVENT_LIMIT')) {
+      return lang === 'vi'
+        ? 'Mỗi email chỉ được tổ chức 1 sự kiện tại một thời điểm. Vui lòng quản lý hoặc xóa sự kiện hiện tại trước khi tạo sự kiện mới.'
+        : 'Each email can only host 1 event at a time. Please manage or delete your current event before creating a new one.';
+    }
+    if (msg.includes('SLUG_DATE_TAKEN')) {
+      return lang === 'vi'
+        ? 'Đường dẫn này đã được dùng cho một sự kiện khác vào đúng ngày bạn chọn. Hãy đổi tên đường dẫn hoặc chọn ngày khác.'
+        : 'This URL is already used by another event on the same date you picked. Try a different slug or date.';
+    }
+    if (msg.includes('EVENT_DATE_REQUIRED')) {
+      return lang === 'vi' ? 'Vui lòng chọn ngày giờ diễn ra sự kiện.' : 'Please pick the event date and time.';
+    }
+    if (msg.includes('EVENT_DATE_IN_PAST')) {
+      return lang === 'vi' ? 'Ngày giờ sự kiện không được ở quá khứ.' : 'The event date/time cannot be in the past.';
+    }
+    if (msg.includes('INVALID_DURATION')) {
+      return lang === 'vi' ? 'Thời hạn tồn tại của sự kiện không hợp lệ.' : 'Invalid event lifetime option.';
+    }
+    return msg;
+  };
+
   // Auto-create event if host logs in and there is a pending event saved in localStorage
   useEffect(() => {
     if (!isLoggedIn || !hostEmail) return;
@@ -80,6 +123,8 @@ function Home() {
         setSlug(pendingEvent.slug || '');
         setEventType(pendingEvent.eventType || 'offline');
         setMeetingLink(pendingEvent.meetingLink || '');
+        setEventDate(pendingEvent.eventDate || '');
+        setDurationDays(pendingEvent.durationDays || '7');
 
         const autoCreate = async () => {
           setLoading(true);
@@ -91,13 +136,17 @@ function Home() {
             pendingEvent.desc,
             hostEmail,
             pendingEvent.eventType,
-            pendingEvent.meetingLink
+            pendingEvent.meetingLink,
+            pendingEvent.eventDate,
+            Number(pendingEvent.durationDays) || 7
           );
 
           setLoading(false);
 
           if (serviceError) {
-            setError(serviceError.message || (lang === 'vi' ? 'Đã có lỗi xảy ra khi tự động tạo sự kiện.' : 'An error occurred while automatically creating the event.'));
+            setError(friendlyCreateError(serviceError) || (lang === 'vi' ? 'Đã có lỗi xảy ra khi tự động tạo sự kiện.' : 'An error occurred while automatically creating the event.'));
+            // Refresh hosted-event state (e.g. when blocked by the 1-event-per-email limit)
+            eventService.getMyHostedEvent(hostEmail).then(({ data: ev }) => setMyEvent(ev || null));
           } else if (data) {
             if (data.admin_token) {
               localStorage.setItem(`circlelink_admin_token_${data.slug}`, data.admin_token);
@@ -142,6 +191,12 @@ function Home() {
     e.preventDefault();
     if (!title || !slug) return;
 
+    // Event date/time is required (also used to scope slug uniqueness per day)
+    if (!eventDate) {
+      setError(lang === 'vi' ? 'Vui lòng chọn ngày giờ diễn ra sự kiện.' : 'Please pick the event date and time.');
+      return;
+    }
+
     // Auth gate check: require login to create/host an event!
     if (!isLoggedIn) {
       // Save form data to localStorage so we can auto-create the event after successful login
@@ -150,10 +205,18 @@ function Home() {
         desc: desc.trim(),
         slug: slug.trim().toLowerCase(),
         eventType,
-        meetingLink: eventType !== 'offline' ? meetingLink.trim() : ''
+        meetingLink: eventType !== 'offline' ? meetingLink.trim() : '',
+        eventDate,
+        durationDays
       }));
       setLoginError('');
       setShowLoginModal(true);
+      return;
+    }
+
+    // 1 event per email at a time
+    if (myEvent) {
+      setError(friendlyCreateError({ message: 'HOST_EVENT_LIMIT' }));
       return;
     }
 
@@ -168,18 +231,21 @@ function Home() {
 
     const cleanSlug = slug.trim().toLowerCase();
     const { data, error: serviceError } = await eventService.createEvent(
-      cleanSlug, 
-      title.trim(), 
-      desc.trim(), 
-      hostEmail, 
-      eventType, 
-      eventType !== 'offline' ? meetingLink.trim() : ''
+      cleanSlug,
+      title.trim(),
+      desc.trim(),
+      hostEmail,
+      eventType,
+      eventType !== 'offline' ? meetingLink.trim() : '',
+      eventDate,
+      Number(durationDays)
     );
 
     setLoading(false);
 
     if (serviceError) {
-      setError(serviceError.message || (lang === 'vi' ? 'Đã có lỗi xảy ra khi tạo sự kiện.' : 'An error occurred while creating the event.'));
+      setError(friendlyCreateError(serviceError) || (lang === 'vi' ? 'Đã có lỗi xảy ra khi tạo sự kiện.' : 'An error occurred while creating the event.'));
+      eventService.getMyHostedEvent(hostEmail).then(({ data: ev }) => setMyEvent(ev || null));
     } else if (data) {
       if (data.admin_token) {
         localStorage.setItem(`circlelink_admin_token_${data.slug}`, data.admin_token);
@@ -251,10 +317,21 @@ function Home() {
               <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
               {lang === 'vi' ? 'EN' : 'VI'}
             </button>
-            
-            <button className="btn btn-outline" onClick={handleTryNow} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}>
-              <i className="fa-solid fa-bolt"></i> {t.tryNow}
-            </button>
+
+            {/* Back to Host Admin (when this host already has an event) */}
+            {isLoggedIn && myEvent ? (
+              <button
+                className="btn btn-primary"
+                onClick={() => navigate(`/event/${myEvent.slug}/admin`)}
+                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}
+              >
+                <i className="fa-solid fa-arrow-right-to-bracket"></i> {lang === 'vi' ? 'Trang quản trị' : 'Host Admin'}
+              </button>
+            ) : (
+              <button className="btn btn-outline" onClick={handleTryNow} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}>
+                <i className="fa-solid fa-bolt"></i> {t.tryNow}
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -334,11 +411,44 @@ function Home() {
           className="home-actions-card glass"
           style={{ scrollMarginTop: '100px' }}
         >
+          {isLoggedIn && myEvent ? (
+            /* Host already has an active event: show management card instead of the create form */
+            <div style={{ textAlign: 'center' }}>
+              <h3>
+                <i className="fa-solid fa-calendar-check" style={{ color: 'var(--accent-violet)', marginRight: '8px' }}></i>
+                {lang === 'vi' ? 'Sự kiện bạn đang tổ chức' : 'Your active event'}
+              </h3>
+
+              <div className="glass" style={{ padding: '20px', borderRadius: '14px', margin: '16px 0', border: '1px solid var(--border-color)' }}>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '18px', color: 'var(--text-primary)' }}>{myEvent.title}</h4>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                  <i className="fa-solid fa-link" style={{ marginRight: '6px' }}></i>/{myEvent.slug}
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button className="btn btn-primary btn-glow" onClick={() => navigate(`/event/${myEvent.slug}/admin`)}>
+                  <i className="fa-solid fa-sliders"></i> {lang === 'vi' ? 'Quản lý sự kiện' : 'Manage event'}
+                </button>
+                <button className="btn btn-outline" onClick={() => navigate(`/event/${myEvent.slug}`)}>
+                  <i className="fa-solid fa-desktop"></i> Live Board
+                </button>
+              </div>
+
+              <p style={{ marginTop: '18px', fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                <i className="fa-solid fa-circle-info" style={{ marginRight: '6px' }}></i>
+                {lang === 'vi'
+                  ? 'Mỗi email chỉ được tổ chức 1 sự kiện tại một thời điểm. Để tạo sự kiện mới, hãy xóa sự kiện hiện tại trong trang quản trị.'
+                  : 'Each email can host only 1 event at a time. To create a new event, delete the current one from the admin page.'}
+              </p>
+            </div>
+          ) : (
+          <>
           <h3>
-            <i className="fa-solid fa-square-plus" style={{ color: 'var(--accent-violet)', marginRight: '8px' }}></i> 
+            <i className="fa-solid fa-square-plus" style={{ color: 'var(--accent-violet)', marginRight: '8px' }}></i>
             {t.formTitle}
           </h3>
-          
+
           {error && (
             <div style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.15)', color: '#dc2626', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', marginBottom: '20px', textAlign: 'left' }}>
               <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '8px' }}></i> {error}
@@ -479,6 +589,39 @@ function Home() {
               </div>
             )}
 
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <div className="form-group-home" style={{ flex: '1 1 220px' }}>
+                <label>{t.formEventDateLabel} <span className="required">*</span></label>
+                <div className="input-wrapper">
+                  <i className="fa-solid fa-calendar-days input-icon"></i>
+                  <input
+                    type="datetime-local"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group-home" style={{ flex: '1 1 180px' }}>
+                <label>{t.formDurationLabel}</label>
+                <div className="input-wrapper">
+                  <i className="fa-solid fa-hourglass-half input-icon"></i>
+                  <select value={durationDays} onChange={(e) => setDurationDays(e.target.value)}>
+                    <option value="1">{t.formDuration1Day}</option>
+                    <option value="3">{t.formDuration3Days}</option>
+                    <option value="7">{t.formDuration7Days}</option>
+                    <option value="30">{t.formDuration30Days}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'left', display: 'block', margin: '-8px 0 16px 2px' }}>
+              <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }}></i>
+              {t.formRetentionHint}
+            </span>
+
             <div className="form-group-home">
               <label>{t.formSlugLabel} <span className="required">*</span></label>
               <div className="input-wrapper">
@@ -493,6 +636,10 @@ function Home() {
               </div>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'left', display: 'block', marginTop: '4px' }}>
                 {t.formSlugHint}<strong>{slug || 'url-cua-ban'}</strong>
+              </span>
+              <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', textAlign: 'left', display: 'block', marginTop: '2px' }}>
+                <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }}></i>
+                {t.formSlugDateScopeHint}
               </span>
             </div>
 
@@ -518,6 +665,7 @@ function Home() {
                   Chính sách bảo mật
                 </Link>
                 , đồng thời đồng ý cho phép CircleLink lưu trữ dữ liệu sự kiện trên Supabase.
+                {' '}{t.formRetentionDisclaimer}
               </span>
             ) : (
               <span>
@@ -530,9 +678,12 @@ function Home() {
                   Privacy Policy
                 </Link>
                 , and consent to event data storage on Supabase.
+                {' '}{t.formRetentionDisclaimer}
               </span>
             )}
           </div>
+          </>
+          )}
         </main>
 
         {/* Features grid */}

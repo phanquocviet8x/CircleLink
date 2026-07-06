@@ -459,6 +459,19 @@ function HostAdmin() {
             <div className="admin-header-title">
               <h3><i className="fa-solid fa-gears"></i> {t.adminConfig}</h3>
               <p>{t.adminDesc}</p>
+              {eventData && eventData.event_date && (
+                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.6', marginTop: '4px' }}>
+                  <i className="fa-solid fa-calendar-day" style={{ marginRight: '6px' }}></i>
+                  {t.adminEventDateLabel}: <strong>{new Date(eventData.event_date).toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US')}</strong>
+                  {eventData.expires_at && (
+                    <>
+                      {' · '}
+                      <i className="fa-solid fa-trash-can" style={{ margin: '0 6px 0 2px' }}></i>
+                      {t.adminPurgeDateLabel}: <strong>{new Date(new Date(eventData.expires_at).getTime() + 24 * 60 * 60 * 1000).toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US')}</strong>
+                    </>
+                  )}
+                </p>
+              )}
             </div>
 
             <div className="admin-settings-group">

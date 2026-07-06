@@ -6,7 +6,7 @@
 -- Events table
 CREATE TABLE IF NOT EXISTS public.events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  slug TEXT UNIQUE NOT NULL,
+  slug TEXT NOT NULL, -- Unique together with event_day (see UNIQUE constraint below), not globally unique
   title TEXT NOT NULL,
   description TEXT,
   host_email TEXT, -- Stores the creator email address
@@ -17,11 +17,37 @@ CREATE TABLE IF NOT EXISTS public.events (
   event_type TEXT DEFAULT 'offline', -- 'offline', 'online', 'hybrid'
   meeting_link TEXT, -- Link to Zoom, Google Meet, Teams, etc.
   admin_token TEXT DEFAULT gen_random_uuid()::text, -- Secure random token for host admin dashboard
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  event_date TIMESTAMPTZ NOT NULL, -- When the event takes place (chosen by host at creation)
+  duration_days SMALLINT NOT NULL CHECK (duration_days > 0), -- Host-selected lifetime (1/3/7/30 days in the UI)
+  event_day DATE NOT NULL, -- Kept in sync by trg_set_event_computed_columns; scopes slug uniqueness per calendar day
+  expires_at TIMESTAMPTZ NOT NULL, -- Kept in sync by trg_set_event_computed_columns; = event_date + duration_days
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  CONSTRAINT events_slug_event_day_key UNIQUE (slug, event_day)
 );
 
 -- Add index on slug for fast event lookups
 CREATE INDEX IF NOT EXISTS idx_events_slug ON public.events(slug);
+CREATE INDEX IF NOT EXISTS idx_events_expires_at ON public.events(expires_at);
+
+-- Trigger keeps event_day/expires_at in sync with event_date/duration_days.
+-- (Can't use GENERATED columns here: "timestamptz AT TIME ZONE text" is
+-- STABLE, not IMMUTABLE, in Postgres, so generated columns reject it.)
+CREATE OR REPLACE FUNCTION public.set_event_computed_columns()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path TO 'public', 'pg_temp'
+AS $$
+BEGIN
+  NEW.event_day := (NEW.event_date AT TIME ZONE 'utc')::date;
+  NEW.expires_at := NEW.event_date + (NEW.duration_days * INTERVAL '1 day');
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_set_event_computed_columns ON public.events;
+CREATE TRIGGER trg_set_event_computed_columns
+  BEFORE INSERT OR UPDATE OF event_date, duration_days ON public.events
+  FOR EACH ROW EXECUTE FUNCTION public.set_event_computed_columns();
 
 -- Attendees table (Contains only non-sensitive public info)
 CREATE TABLE IF NOT EXISTS public.attendees (
@@ -57,18 +83,22 @@ DROP VIEW IF EXISTS public.attendees_public CASCADE;
 CREATE OR REPLACE VIEW public.events_public 
 WITH (security_invoker = true) 
 AS 
-SELECT 
-  id, 
-  slug, 
-  title, 
-  description, 
-  host_id, 
-  is_checkin_open, 
-  require_phone, 
-  is_premium, 
-  event_type, 
-  meeting_link, 
-  created_at 
+SELECT
+  id,
+  slug,
+  title,
+  description,
+  host_id,
+  is_checkin_open,
+  require_phone,
+  is_premium,
+  event_type,
+  meeting_link,
+  event_date,
+  duration_days,
+  expires_at,
+  event_day,
+  created_at
 FROM public.events;
 
 -- Public Attendees View (Bridges structure if needed, excludes contacts entirely)
@@ -101,7 +131,7 @@ REVOKE ALL ON public.attendees FROM anon, authenticated;
 REVOKE ALL ON public.attendee_contacts FROM anon, authenticated;
 
 -- Grant column-level SELECT on events (excludes host_email, admin_token) for the view to function
-GRANT SELECT (id, slug, title, description, host_id, is_checkin_open, require_phone, is_premium, event_type, meeting_link, created_at) 
+GRANT SELECT (id, slug, title, description, host_id, is_checkin_open, require_phone, is_premium, event_type, meeting_link, event_date, duration_days, expires_at, event_day, created_at)
   ON public.events TO anon, authenticated;
 
 -- Grant column-level SELECT on attendees (no contacts exists here anyway) for the view and Realtime to function
@@ -156,13 +186,19 @@ DROP FUNCTION IF EXISTS public.get_attendee_contact(UUID, UUID, UUID) CASCADE;
 DROP FUNCTION IF EXISTS public.admin_regenerate_token(TEXT, TEXT) CASCADE;
 
 -- A. Create Event (Returns new event including admin_token to the creator)
+-- p_event_date + p_duration_days are required: the host picks when the event
+-- happens and how long its link/data stays alive (1, 3, 7 or 30 days). Slugs
+-- are only unique per calendar day (event_day), so two hosts can reuse the
+-- same event name as long as it's not the same day.
 CREATE OR REPLACE FUNCTION public.create_event(
   p_slug TEXT,
   p_title TEXT,
   p_description TEXT,
   p_host_email TEXT,
   p_event_type TEXT,
-  p_meeting_link TEXT
+  p_meeting_link TEXT,
+  p_event_date TIMESTAMPTZ,
+  p_duration_days SMALLINT
 )
 RETURNS public.events
 SECURITY DEFINER
@@ -171,9 +207,25 @@ AS $$
 DECLARE
   v_new_event public.events;
   v_recent INTEGER;
+  v_email TEXT;
+  v_existing INTEGER;
+  v_event_day DATE;
 BEGIN
   IF p_slug IS NULL OR length(trim(p_slug)) = 0 OR p_title IS NULL OR length(trim(p_title)) = 0 THEN
     RAISE EXCEPTION 'INVALID_INPUT';
+  END IF;
+
+  IF p_event_date IS NULL THEN
+    RAISE EXCEPTION 'EVENT_DATE_REQUIRED';
+  END IF;
+
+  -- Small grace window for clock skew / an event that has already started
+  IF p_event_date < (now() - interval '2 hours') THEN
+    RAISE EXCEPTION 'EVENT_DATE_IN_PAST';
+  END IF;
+
+  IF p_duration_days IS NULL OR p_duration_days NOT IN (1, 3, 7, 30) THEN
+    RAISE EXCEPTION 'INVALID_DURATION';
   END IF;
 
   -- Reject unsafe meeting links (only http/https allowed)
@@ -189,13 +241,69 @@ BEGIN
     RAISE EXCEPTION 'RATE_LIMITED';
   END IF;
 
+  -- Prefer the authenticated email from the JWT (cannot be spoofed by the client)
+  v_email := lower(trim(COALESCE(NULLIF(auth.jwt() ->> 'email', ''), p_host_email)));
+  IF v_email IS NULL OR length(v_email) = 0 THEN
+    RAISE EXCEPTION 'LOGIN_REQUIRED';
+  END IF;
+
+  -- One active event per host email at a time
+  SELECT COUNT(*) INTO v_existing FROM public.events
+  WHERE lower(host_email) = v_email;
+  IF v_existing > 0 THEN
+    RAISE EXCEPTION 'HOST_EVENT_LIMIT';
+  END IF;
+
+  -- Slug collisions are only blocked on the same calendar day
+  v_event_day := (p_event_date AT TIME ZONE 'utc')::date;
+  IF EXISTS (SELECT 1 FROM public.events WHERE slug = p_slug AND event_day = v_event_day) THEN
+    RAISE EXCEPTION 'SLUG_DATE_TAKEN';
+  END IF;
+
   INSERT INTO public.events (
-    slug, title, description, host_email, event_type, meeting_link, admin_token
+    slug, title, description, host_email, event_type, meeting_link, admin_token,
+    event_date, duration_days
   ) VALUES (
-    p_slug, p_title, p_description, p_host_email, p_event_type, p_meeting_link, gen_random_uuid()::text
+    p_slug, p_title, p_description, v_email, p_event_type, p_meeting_link, gen_random_uuid()::text,
+    p_event_date, p_duration_days
   )
   RETURNING * INTO v_new_event;
   RETURN v_new_event;
+END;
+$$ LANGUAGE plpgsql;
+
+-- A2. Get the event hosted by the currently authenticated user (email from JWT only).
+--     Returns public fields only; never exposes admin_token. Authenticated-only.
+DROP FUNCTION IF EXISTS public.get_my_hosted_event() CASCADE;
+CREATE OR REPLACE FUNCTION public.get_my_hosted_event()
+RETURNS TABLE (
+  id UUID,
+  slug TEXT,
+  title TEXT,
+  description TEXT,
+  event_type TEXT,
+  event_date TIMESTAMPTZ,
+  duration_days SMALLINT,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ
+)
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+DECLARE
+  v_email TEXT;
+BEGIN
+  v_email := lower(trim(COALESCE(auth.jwt() ->> 'email', '')));
+  IF v_email = '' THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  SELECT e.id, e.slug, e.title, e.description, e.event_type, e.event_date, e.duration_days, e.expires_at, e.created_at
+  FROM public.events e
+  WHERE lower(e.host_email) = v_email
+  ORDER BY e.created_at DESC
+  LIMIT 1;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -602,9 +710,33 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- M. Purge Expired Events (internal only — invoked by the pg_cron job below,
+--    never exposed over the REST API). Deletes an event, and cascades to its
+--    attendees/attendee_contacts, 24 hours after the event's expires_at.
+CREATE OR REPLACE FUNCTION public.purge_expired_events()
+RETURNS void
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+BEGIN
+  DELETE FROM public.events WHERE expires_at < (now() - interval '24 hours');
+END;
+$$ LANGUAGE plpgsql;
+
+-- Schedule the purge to run hourly. Requires the pg_cron extension
+-- (Supabase: Database > Extensions > pg_cron, or `CREATE EXTENSION pg_cron;`).
+DO $$
+BEGIN
+  PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'purge-expired-events';
+EXCEPTION WHEN OTHERS THEN
+  NULL; -- pg_cron not installed yet / no prior job — safe to ignore
+END $$;
+
+SELECT cron.schedule('purge-expired-events', '0 * * * *', $$SELECT public.purge_expired_events();$$);
+
 -- ==================== 5. RPC EXECUTION GRANTS ====================
 
-GRANT EXECUTE ON FUNCTION public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ, SMALLINT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_update_event(TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_delete_event(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_get_attendees(UUID, TEXT, TEXT) TO anon, authenticated;
@@ -616,6 +748,10 @@ GRANT EXECUTE ON FUNCTION public.get_attendee_self(UUID, TEXT) TO anon, authenti
 GRANT EXECUTE ON FUNCTION public.update_attendee_self(UUID, TEXT, JSONB) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.delete_attendee_self(UUID, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_attendee_contact(UUID, UUID, UUID) TO anon, authenticated;
+REVOKE ALL ON FUNCTION public.get_my_hosted_event() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_my_hosted_event() TO authenticated;
+-- purge_expired_events is for the internal pg_cron job only — never expose it over the REST API
+REVOKE ALL ON FUNCTION public.purge_expired_events() FROM PUBLIC, anon, authenticated;
 
 
 -- ==================== 6. DATABASE MIGRATION FOR EXISTING SYSTEM ====================

@@ -26,13 +26,19 @@ const saveLocalAttendees = (attendees) => {
 export const eventService = {
 
     /**
-     * Fetch an event by slug
+     * Fetch an event by slug.
+     * Slugs are only unique per calendar day (event_day), so two different
+     * hosts can reuse the same event name on different dates. When more than
+     * one row matches, resolve to the "active" one: prefer the soonest event
+     * that hasn't expired yet (currently running or next upcoming); fall
+     * back to the most recent one if everything matching has expired.
      */
     async getEvent(slug) {
         if (isDemoMode) {
             const events = getLocalEvents();
             // If the event doesn't exist, auto-create a default mock event to make testing seamless
             if (!events[slug]) {
+                const now = new Date();
                 const defaultEvent = {
                     id: 'event-mock-id-' + slug,
                     slug: slug,
@@ -43,7 +49,10 @@ export const eventService = {
                     is_premium: false,
                     event_type: slug === 'test-event' ? 'hybrid' : 'offline',
                     meeting_link: slug === 'test-event' ? 'https://zoom.us/j/123456789' : '',
-                    created_at: new Date().toISOString()
+                    event_date: now.toISOString(),
+                    duration_days: 7,
+                    expires_at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    created_at: now.toISOString()
                 };
                 events[slug] = defaultEvent;
                 saveLocalEvents(events);
@@ -54,21 +63,36 @@ export const eventService = {
                 .from('events_public')
                 .select('*')
                 .eq('slug', slug)
-                .maybeSingle();
-            
-            return { data, error };
+                .order('event_date', { ascending: true });
+
+            if (error) return { data: null, error };
+            if (!data || data.length === 0) return { data: null, error: null };
+
+            const nowIso = new Date().toISOString();
+            const notExpired = data.filter(e => !e.expires_at || e.expires_at > nowIso);
+            const chosen = notExpired.length > 0 ? notExpired[0] : data[data.length - 1];
+            return { data: chosen, error: null };
         }
     },
 
     /**
-     * Create a new event
+     * Create a new event.
+     * eventDate (ISO string / Date) and durationDays (1, 3, 7 or 30) are
+     * required: they let the same event name be reused on a different date
+     * (uniqueness is scoped to slug + calendar day) and define how long the
+     * event's link and data stay alive before automatic cleanup.
      */
-    async createEvent(slug, title, description, hostEmail = null, eventType = 'offline', meetingLink = '') {
+    async createEvent(slug, title, description, hostEmail = null, eventType = 'offline', meetingLink = '', eventDate = null, durationDays = 7) {
         if (isDemoMode) {
             const events = getLocalEvents();
-            if (events[slug]) {
-                return { data: null, error: { message: "Event slug already exists locally." } };
+            const eventDayKey = (eventDate ? new Date(eventDate) : new Date()).toISOString().slice(0, 10);
+            const existing = events[slug];
+            const existingDayKey = existing?.event_date ? new Date(existing.event_date).toISOString().slice(0, 10) : null;
+            if (existing && existingDayKey === eventDayKey) {
+                return { data: null, error: { message: "SLUG_DATE_TAKEN" } };
             }
+            const resolvedDate = eventDate ? new Date(eventDate) : new Date();
+            const resolvedDuration = durationDays || 7;
             const newEvent = {
                 id: 'event-' + generateUUID(),
                 slug,
@@ -80,8 +104,14 @@ export const eventService = {
                 is_premium: false,
                 event_type: eventType,
                 meeting_link: meetingLink,
+                event_date: resolvedDate.toISOString(),
+                duration_days: resolvedDuration,
+                expires_at: new Date(resolvedDate.getTime() + resolvedDuration * 24 * 60 * 60 * 1000).toISOString(),
                 created_at: new Date().toISOString()
             };
+            // Demo mode keys events by slug only; a later same-day check above
+            // prevents accidental overwrite, different days simply replace the
+            // single demo slot (local storage isn't meant to model this fully).
             events[slug] = newEvent;
             saveLocalEvents(events);
             return { data: newEvent, error: null };
@@ -93,9 +123,30 @@ export const eventService = {
                     p_description: description,
                     p_host_email: hostEmail,
                     p_event_type: eventType,
-                    p_meeting_link: meetingLink
+                    p_meeting_link: meetingLink,
+                    p_event_date: eventDate ? new Date(eventDate).toISOString() : null,
+                    p_duration_days: durationDays
                 });
             return { data, error };
+        }
+    },
+
+    /**
+     * Get the event currently hosted by the logged-in host (1 event per email).
+     * Returns { data: event | null }.
+     */
+    async getMyHostedEvent(hostEmail = null) {
+        if (isDemoMode) {
+            const events = getLocalEvents();
+            const mine = Object.values(events)
+                .filter(e => e && e.host_email && hostEmail && e.host_email.toLowerCase() === hostEmail.toLowerCase())
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            return { data: mine[0] || null, error: null };
+        } else {
+            const { data, error } = await supabase.rpc('get_my_hosted_event');
+            // RPC returns a set; normalize to a single row or null
+            const row = Array.isArray(data) ? (data[0] || null) : (data || null);
+            return { data: row, error };
         }
     },
 
