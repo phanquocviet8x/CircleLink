@@ -170,7 +170,7 @@ END $$;
 
 -- Drop existing functions first to avoid Postgres 'cannot change return type of existing function' error
 DROP FUNCTION IF EXISTS public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT) CASCADE;
-DROP FUNCTION IF EXISTS public.admin_update_event(TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, TEXT, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_update_event(TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ, SMALLINT) CASCADE;
 DROP FUNCTION IF EXISTS public.admin_delete_event(TEXT, TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.admin_get_attendees(UUID, TEXT, TEXT) CASCADE;
 DROP FUNCTION IF EXISTS public.admin_kick_attendee(UUID, TEXT, TEXT) CASCADE;
@@ -318,7 +318,9 @@ CREATE OR REPLACE FUNCTION public.admin_update_event(
   p_require_phone BOOLEAN DEFAULT NULL,
   p_is_premium BOOLEAN DEFAULT NULL,
   p_event_type TEXT DEFAULT NULL,
-  p_meeting_link TEXT DEFAULT NULL
+  p_meeting_link TEXT DEFAULT NULL,
+  p_event_date TIMESTAMPTZ DEFAULT NULL,
+  p_duration_days SMALLINT DEFAULT NULL
 )
 RETURNS public.events
 SECURITY DEFINER
@@ -332,6 +334,10 @@ BEGIN
     RAISE EXCEPTION 'INVALID_MEETING_LINK';
   END IF;
 
+  IF p_duration_days IS NOT NULL AND p_duration_days NOT IN (1, 3, 7, 30) THEN
+    RAISE EXCEPTION 'INVALID_DURATION';
+  END IF;
+
   IF EXISTS (
     SELECT 1 FROM public.events WHERE slug = p_slug AND admin_token = p_token
   ) THEN
@@ -343,7 +349,9 @@ BEGIN
       require_phone = COALESCE(p_require_phone, require_phone),
       is_premium = COALESCE(p_is_premium, is_premium),
       event_type = COALESCE(p_event_type, event_type),
-      meeting_link = COALESCE(p_meeting_link, meeting_link)
+      meeting_link = COALESCE(p_meeting_link, meeting_link),
+      event_date = COALESCE(p_event_date, event_date),
+      duration_days = COALESCE(p_duration_days, duration_days)
     WHERE slug = p_slug
     RETURNING * INTO v_updated_event;
     RETURN v_updated_event;
@@ -744,7 +752,7 @@ SELECT cron.schedule('purge-expired-events', '0 * * * *', $$SELECT public.purge_
 -- create_event requires a signed-in user (JWT email); never grant to anon
 REVOKE ALL ON FUNCTION public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ, SMALLINT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ, SMALLINT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_update_event(TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, TEXT, TEXT) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_update_event(TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, TEXT, TEXT, TIMESTAMPTZ, SMALLINT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_delete_event(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_get_attendees(UUID, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_kick_attendee(UUID, TEXT, TEXT) TO anon, authenticated;

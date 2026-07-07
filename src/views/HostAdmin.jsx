@@ -13,6 +13,14 @@ const avatarPresets = {
   'avatar-6': { icon: 'fa-robot', style: 'linear-gradient(135deg, #8A2387, #E94057)' }
 };
 
+const formatDateTimeLocal = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+};
+
 function HostAdmin() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -33,6 +41,8 @@ function HostAdmin() {
   const [isPremium, setIsPremium] = useState(false);
   const [eventType, setEventType] = useState('offline');
   const [meetingLink, setMeetingLink] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [durationDays, setDurationDays] = useState(7);
 
   // Admin Token Verification State
   const [tokenInput, setTokenInput] = useState('');
@@ -61,6 +71,8 @@ function HostAdmin() {
       setIsPremium(event.is_premium || false);
       setEventType(event.event_type || 'offline');
       setMeetingLink(event.meeting_link || '');
+      setEventDate(formatDateTimeLocal(event.event_date));
+      setDurationDays(event.duration_days || 7);
 
       const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
       if (token) {
@@ -138,11 +150,19 @@ function HostAdmin() {
       description: desc.trim(),
       event_type: eventType,
       meeting_link: eventType !== 'offline' ? meetingLink.trim() : '',
+      event_date: eventDate ? new Date(eventDate).toISOString() : null,
+      duration_days: Number(durationDays),
       ...fieldUpdates
     };
     const { error } = await eventService.updateEvent(slug, finalUpdates);
     if (error) {
       alert((lang === 'vi' ? "Lỗi khi cập nhật thông tin: " : "Error updating details: ") + error.message);
+    } else {
+      // Refresh eventData to show computed changes like expires_at
+      const { data: updatedEvent } = await eventService.getEvent(slug);
+      if (updatedEvent) {
+        setEventData(updatedEvent);
+      }
     }
   };
 
@@ -256,12 +276,16 @@ function HostAdmin() {
     const origDesc = initialEventData?.description || '';
     const origEventType = initialEventData?.event_type || 'offline';
     const origMeetingLink = initialEventData?.meeting_link || '';
+    const origEventDate = formatDateTimeLocal(initialEventData?.event_date);
+    const origDurationDays = initialEventData?.duration_days || 7;
 
     const isDifferent =
       currentTitle !== origTitle ||
       currentDesc !== origDesc ||
       currentEventType !== origEventType ||
-      (currentEventType !== 'offline' && currentMeetingLink !== origMeetingLink);
+      (currentEventType !== 'offline' && currentMeetingLink !== origMeetingLink) ||
+      eventDate !== origEventDate ||
+      Number(durationDays) !== Number(origDurationDays);
 
     if (!isDifferent) {
       alert(lang === 'vi' ? "sự kiện đang tồn tại" : "sự kiện đang tồn tại");
@@ -299,8 +323,8 @@ function HostAdmin() {
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-');
 
-    const newEventDate = new Date().toISOString();
-    const durationDays = initialEventData?.duration_days || 7;
+    const newEventDate = eventDate ? new Date(eventDate).toISOString() : new Date().toISOString();
+    const finalDurationDays = Number(durationDays) || 7;
 
     // Create the new event
     const { data: newEvent, error: createErr } = await eventService.createEvent(
@@ -311,7 +335,7 @@ function HostAdmin() {
       currentEventType,
       currentMeetingLink,
       newEventDate,
-      durationDays
+      finalDurationDays
     );
 
     if (createErr) {
@@ -622,6 +646,39 @@ function HostAdmin() {
                   onChange={(e) => setDesc(e.target.value)} 
                   onBlur={() => handleUpdateDetails()}
                 />
+              </div>
+            </div>
+
+            <div className="admin-settings-group">
+              <label>{t.formEventDateLabel}</label>
+              <div className="input-wrapper">
+                <i className="fa-solid fa-calendar-days input-icon"></i>
+                <input 
+                  type="datetime-local" 
+                  value={eventDate} 
+                  onChange={(e) => setEventDate(e.target.value)} 
+                  onBlur={() => handleUpdateDetails({ event_date: eventDate })}
+                />
+              </div>
+            </div>
+
+            <div className="admin-settings-group">
+              <label>{t.formDurationLabel}</label>
+              <div className="input-wrapper">
+                <i className="fa-solid fa-hourglass-half input-icon"></i>
+                <select 
+                  value={durationDays} 
+                  onChange={async (e) => {
+                    const val = Number(e.target.value);
+                    setDurationDays(val);
+                    await handleUpdateDetails({ duration_days: val });
+                  }}
+                >
+                  <option value="1">{t.formDuration1Day}</option>
+                  <option value="3">{t.formDuration3Days}</option>
+                  <option value="7">{t.formDuration7Days}</option>
+                  <option value="30">{t.formDuration30Days}</option>
+                </select>
               </div>
             </div>
 

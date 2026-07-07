@@ -180,7 +180,9 @@ export const eventService = {
                     p_require_phone: updates.require_phone !== undefined ? updates.require_phone : null,
                     p_is_premium: updates.is_premium !== undefined ? updates.is_premium : null,
                     p_event_type: updates.event_type !== undefined ? updates.event_type : null,
-                    p_meeting_link: updates.meeting_link !== undefined ? updates.meeting_link : null
+                    p_meeting_link: updates.meeting_link !== undefined ? updates.meeting_link : null,
+                    p_event_date: updates.event_date !== undefined ? (updates.event_date ? new Date(updates.event_date).toISOString() : null) : null,
+                    p_duration_days: updates.duration_days !== undefined ? (updates.duration_days ? Number(updates.duration_days) : null) : null
                 });
             return { data, error };
         }
