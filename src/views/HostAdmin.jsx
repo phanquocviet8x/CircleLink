@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { eventService } from '../services/eventService';
 import Logo from '../components/Logo';
 import { getTranslations, getLanguage, setLanguage } from '../services/translations';
+import { supabase } from '../supabaseClient';
 
 const avatarPresets = {
   'avatar-1': { icon: 'fa-user-astronaut', style: 'linear-gradient(135deg, #FF6B6B, #FF8E53)' },
@@ -74,7 +75,24 @@ function HostAdmin() {
       setEventDate(formatDateTimeLocal(event.event_date));
       setDurationDays(event.duration_days || 7);
 
-      const token = localStorage.getItem(`circlelink_admin_token_${slug}`);
+      let token = localStorage.getItem(`circlelink_admin_token_${slug}`);
+      
+      // If token not in localStorage, check if the authenticated user is the host and recover it
+      if (!token && supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && session.user && session.user.email) {
+            const { data: myEvent } = await eventService.getMyHostedEvent(session.user.email);
+            if (myEvent && myEvent.slug === slug && myEvent.admin_token) {
+              token = myEvent.admin_token;
+              localStorage.setItem(`circlelink_admin_token_${slug}`, token);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to recover session or token:", err);
+        }
+      }
+
       if (token) {
         const { isValid } = await eventService.verifyAdminToken(slug, token);
         if (isValid) {

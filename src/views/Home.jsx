@@ -118,7 +118,12 @@ function Home() {
     }
     let cancelled = false;
     eventService.getMyHostedEvent(hostEmail).then(({ data }) => {
-      if (!cancelled) setMyEvent(data || null);
+      if (!cancelled) {
+        setMyEvent(data || null);
+        if (data && data.admin_token && data.slug) {
+          localStorage.setItem(`circlelink_admin_token_${data.slug}`, data.admin_token);
+        }
+      }
     });
     return () => { cancelled = true; };
   }, [isLoggedIn, hostEmail]);

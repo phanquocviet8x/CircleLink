@@ -286,7 +286,8 @@ RETURNS TABLE (
   event_date TIMESTAMPTZ,
   duration_days SMALLINT,
   expires_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ
+  created_at TIMESTAMPTZ,
+  admin_token TEXT
 )
 SECURITY DEFINER
 SET search_path TO 'public', 'pg_temp'
@@ -300,7 +301,7 @@ BEGIN
   END IF;
 
   RETURN QUERY
-  SELECT e.id, e.slug, e.title, e.description, e.event_type, e.event_date, e.duration_days, e.expires_at, e.created_at
+  SELECT e.id, e.slug, e.title, e.description, e.event_type, e.event_date, e.duration_days, e.expires_at, e.created_at, e.admin_token
   FROM public.events e
   WHERE lower(e.host_email) = v_email
   ORDER BY e.created_at DESC
