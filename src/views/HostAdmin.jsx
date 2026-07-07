@@ -17,6 +17,7 @@ function HostAdmin() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [eventData, setEventData] = useState(null);
+  const [initialEventData, setInitialEventData] = useState(null);
   const [attendeesList, setAttendeesList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchVal, setSearchVal] = useState('');
@@ -52,6 +53,7 @@ function HostAdmin() {
         return;
       }
       setEventData(event);
+      setInitialEventData(event);
       setTitle(event.title);
       setDesc(event.description || '');
       setCheckinOpen(event.is_checkin_open);
@@ -239,6 +241,99 @@ function HostAdmin() {
     }
   };
 
+  const handleCreateNewEvent = async () => {
+    if (!title.trim()) {
+      alert(lang === 'vi' ? "Vui lòng nhập tên sự kiện!" : "Please enter the event name!");
+      return;
+    }
+
+    const currentTitle = title.trim();
+    const currentDesc = desc.trim();
+    const currentEventType = eventType;
+    const currentMeetingLink = currentEventType !== 'offline' ? meetingLink.trim() : '';
+
+    const origTitle = initialEventData?.title || '';
+    const origDesc = initialEventData?.description || '';
+    const origEventType = initialEventData?.event_type || 'offline';
+    const origMeetingLink = initialEventData?.meeting_link || '';
+
+    const isDifferent =
+      currentTitle !== origTitle ||
+      currentDesc !== origDesc ||
+      currentEventType !== origEventType ||
+      (currentEventType !== 'offline' && currentMeetingLink !== origMeetingLink);
+
+    if (!isDifferent) {
+      alert(lang === 'vi' ? "sự kiện đang tồn tại" : "sự kiện đang tồn tại");
+      return;
+    }
+
+    const confirmMsg = lang === 'vi'
+      ? "sự kiện đang có sẽ bị xoá và thay thế bằng sự kiện bạn mới nhập vào"
+      : "sự kiện đang có sẽ bị xoá và thay thế bằng sự kiện bạn mới nhập vào";
+
+    const proceed = confirm(confirmMsg);
+    if (!proceed) return;
+
+    setLoading(true);
+
+    const hostEmail = eventData?.host_email || localStorage.getItem('circlelink_host_email') || '';
+
+    // Delete the current event
+    const { error: deleteErr } = await eventService.deleteEvent(slug);
+    if (deleteErr) {
+      alert((lang === 'vi' ? "Lỗi khi xóa sự kiện hiện tại: " : "Error deleting current event: ") + deleteErr.message);
+      setLoading(false);
+      return;
+    }
+
+    localStorage.removeItem(`circlelink_admin_token_${slug}`);
+
+    // Generate new slug
+    const newSlug = currentTitle
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // remove tone marks (Vietnamese)
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+
+    const newEventDate = new Date().toISOString();
+    const durationDays = initialEventData?.duration_days || 7;
+
+    // Create the new event
+    const { data: newEvent, error: createErr } = await eventService.createEvent(
+      newSlug,
+      currentTitle,
+      currentDesc,
+      hostEmail,
+      currentEventType,
+      currentMeetingLink,
+      newEventDate,
+      durationDays
+    );
+
+    if (createErr) {
+      const errMsg = createErr.message || '';
+      if (errMsg.includes('SLUG_DATE_TAKEN')) {
+        alert(lang === 'vi'
+          ? "Đường dẫn sự kiện này đã được sử dụng cho một sự kiện khác trong hôm nay. Vui lòng đổi tên sự kiện khác."
+          : "This event slug is already taken for today. Please choose a different event name.");
+      } else {
+        alert((lang === 'vi' ? "Lỗi khi tạo sự kiện mới: " : "Error creating new event: ") + errMsg);
+      }
+      navigate('/');
+    } else if (newEvent) {
+      if (newEvent.admin_token) {
+        localStorage.setItem(`circlelink_admin_token_${newEvent.slug}`, newEvent.admin_token);
+      }
+      alert(lang === 'vi' ? "Đã tạo sự kiện mới thành công!" : "New event created successfully!");
+      navigate(`/event/${newEvent.slug}/admin`);
+    }
+    setLoading(false);
+  };
+
   const exportToCSV = () => {
     if (attendeesList.length === 0) {
       alert(lang === 'vi' ? "Danh sách trống. Không thể xuất file CSV." : "Check-in list is empty. Cannot export CSV.");
@@ -339,6 +434,17 @@ function HostAdmin() {
     setLang(newLang);
   };
 
+  const handleLogout = () => {
+    const confirmLogout = confirm(
+      lang === 'vi' 
+        ? 'Bạn có chắc chắn muốn đăng xuất khỏi quyền quản trị sự kiện này?' 
+        : 'Are you sure you want to log out from this event admin?'
+    );
+    if (!confirmLogout) return;
+    localStorage.removeItem(`circlelink_admin_token_${slug}`);
+    setIsAuthorized(false);
+  };
+
   if (loading || checkingToken) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-secondary)' }}>
@@ -436,6 +542,25 @@ function HostAdmin() {
               <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
               {lang === 'vi' ? 'EN' : 'VI'}
             </button>
+
+            {isAuthorized && (
+              <button 
+                className="lang-toggle-btn" 
+                onClick={handleLogout}
+                style={{ 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: '1px solid rgba(220, 38, 38, 0.3)',
+                  color: '#ef4444',
+                  background: 'rgba(220, 38, 38, 0.05)',
+                  cursor: 'pointer'
+                }}
+              >
+                <i className="fa-solid fa-right-from-bracket"></i>
+                <span>{lang === 'vi' ? 'Đăng xuất' : 'Logout'}</span>
+              </button>
+            )}
 
             <nav className="nav-tabs" style={{ background: 'transparent', border: 'none', padding: 0 }}>
               <button className="nav-tab" onClick={() => navigate(`/event/${slug}`)}>
@@ -593,6 +718,26 @@ function HostAdmin() {
                 </div>
               </div>
             )}
+
+            <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+              <button 
+                type="button"
+                onClick={handleCreateNewEvent} 
+                className="btn btn-primary"
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  justifyContent: 'center',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontWeight: 'bold'
+                }}
+              >
+                <i className="fa-solid fa-plus-circle"></i> 
+                <span>{lang === 'vi' ? 'Tạo sự kiện mới' : 'Create new event'}</span>
+              </button>
+            </div>
 
             <div className="admin-settings-group" style={{ borderTop: '1px solid rgba(59, 42, 30, 0.08)', paddingTop: '16px' }}>
               <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

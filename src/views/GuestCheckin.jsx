@@ -217,6 +217,37 @@ function GuestCheckin() {
     setTimeout(() => setToastMsg(''), 3000);
   };
 
+  const handleLogout = () => {
+    const confirmLogout = confirm(
+      lang === 'vi' 
+        ? 'Bạn có chắc chắn muốn đăng xuất? Thao tác này sẽ xóa phiên check-in của bạn trên thiết bị này.' 
+        : 'Are you sure you want to log out? This will clear your check-in session on this device.'
+    );
+    if (!confirmLogout) return;
+
+    localStorage.removeItem(`circlelink_attendee_id_${slug}`);
+    localStorage.removeItem(`circlelink_attendee_token_${slug}`);
+    
+    setCheckedIn(false);
+    setCheckedInAttendeeId(null);
+    setIsEditing(false);
+
+    // Clear form fields
+    setFullname('');
+    setRole('');
+    setBio('');
+    setLooking('');
+    setHelp('');
+    setPhone('');
+    setEmail('');
+    setTelegram('');
+    setFacebook('');
+    setLinkedin('');
+    setInstagram('');
+    
+    showToast(lang === 'vi' ? 'Đã đăng xuất thành công!' : 'Logged out successfully!');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!fullname || !role || !bio) return;
@@ -438,6 +469,24 @@ function GuestCheckin() {
                 <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
                 {lang === 'vi' ? 'EN' : 'VI'}
               </button>
+              {checkedIn && (
+                <button 
+                  className="lang-toggle-btn" 
+                  onClick={handleLogout}
+                  style={{ 
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    border: '1px solid rgba(220, 38, 38, 0.3)',
+                    color: '#ef4444',
+                    background: 'rgba(220, 38, 38, 0.05)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <i className="fa-solid fa-right-from-bracket"></i>
+                  <span>{lang === 'vi' ? 'Đăng xuất' : 'Logout'}</span>
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -529,6 +578,26 @@ function GuestCheckin() {
               >
                 {t.checkinBtnGoHome}
               </Link>
+              <button 
+                type="button"
+                onClick={handleLogout}
+                className="btn btn-outline"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  padding: '12px',
+                  borderRadius: '24px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  border: '1px solid rgba(220, 38, 38, 0.4)',
+                  background: 'rgba(220, 38, 38, 0.03)',
+                  color: '#ef4444'
+                }}
+              >
+                <i className="fa-solid fa-right-from-bracket"></i> <span>{lang === 'vi' ? 'Đăng xuất' : 'Logout'}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -554,6 +623,24 @@ function GuestCheckin() {
               <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
               {lang === 'vi' ? 'EN' : 'VI'}
             </button>
+            {checkedIn && (
+              <button 
+                className="lang-toggle-btn" 
+                onClick={handleLogout}
+                style={{ 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  border: '1px solid rgba(220, 38, 38, 0.3)',
+                  color: '#ef4444',
+                  background: 'rgba(220, 38, 38, 0.05)',
+                  cursor: 'pointer'
+                }}
+              >
+                <i className="fa-solid fa-right-from-bracket"></i>
+                <span>{lang === 'vi' ? 'Đăng xuất' : 'Logout'}</span>
+              </button>
+            )}
           </div>
         </div>
       </header>

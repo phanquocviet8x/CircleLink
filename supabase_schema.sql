@@ -234,17 +234,18 @@ BEGIN
     RAISE EXCEPTION 'INVALID_MEETING_LINK';
   END IF;
 
+  -- Host email comes ONLY from the verified JWT. p_host_email is ignored
+  -- (kept in the signature for frontend compatibility) so it can never be spoofed.
+  v_email := lower(trim(COALESCE(auth.jwt() ->> 'email', '')));
+  IF v_email = '' THEN
+    RAISE EXCEPTION 'LOGIN_REQUIRED';
+  END IF;
+
   -- Basic flood guard against scripted spam bursts
   SELECT COUNT(*) INTO v_recent FROM public.events
   WHERE created_at > now() - interval '10 seconds';
   IF v_recent >= 5 THEN
     RAISE EXCEPTION 'RATE_LIMITED';
-  END IF;
-
-  -- Prefer the authenticated email from the JWT (cannot be spoofed by the client)
-  v_email := lower(trim(COALESCE(NULLIF(auth.jwt() ->> 'email', ''), p_host_email)));
-  IF v_email IS NULL OR length(v_email) = 0 THEN
-    RAISE EXCEPTION 'LOGIN_REQUIRED';
   END IF;
 
   -- One active event per host email at a time
@@ -359,6 +360,7 @@ CREATE OR REPLACE FUNCTION public.admin_delete_event(
 )
 RETURNS VOID
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 BEGIN
   IF EXISTS (
@@ -391,6 +393,7 @@ RETURNS TABLE (
   created_at TIMESTAMP WITH TIME ZONE
 )
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 BEGIN
   IF EXISTS (
@@ -428,6 +431,7 @@ CREATE OR REPLACE FUNCTION public.admin_kick_attendee(
 )
 RETURNS VOID
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 BEGIN
   IF EXISTS (
@@ -448,6 +452,7 @@ CREATE OR REPLACE FUNCTION public.admin_reset_event(
 )
 RETURNS VOID
 SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
 AS $$
 BEGIN
   IF EXISTS (
@@ -736,7 +741,9 @@ SELECT cron.schedule('purge-expired-events', '0 * * * *', $$SELECT public.purge_
 
 -- ==================== 5. RPC EXECUTION GRANTS ====================
 
-GRANT EXECUTE ON FUNCTION public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ, SMALLINT) TO anon, authenticated;
+-- create_event requires a signed-in user (JWT email); never grant to anon
+REVOKE ALL ON FUNCTION public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ, SMALLINT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_event(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ, SMALLINT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_update_event(TEXT, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_delete_event(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_get_attendees(UUID, TEXT, TEXT) TO anon, authenticated;

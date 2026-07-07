@@ -2,11 +2,12 @@ import React from 'react';
 
 /**
  * CircleLink Premium Minimal Logo Component
- * Supports 4 different concept variations:
+ * Supports 5 different concept variations:
  * 1. Orbital Connections (Vòng Tròn Quỹ Đạo)
  * 2. Infinite Unity (Vòng Lặp Vô Hạn)
  * 3. Synergic Triquetra (Nút Thắt Giao Thoa)
  * 4. Stellar Mesh (Mạng Lưới Chòm Sao)
+ * 5. Orbital Smile (Vòng Cung Nụ Cười Quỹ Đạo) - landing-v2 brand mark
  */
 export default function Logo({ 
   variant = 1, 
@@ -129,6 +130,43 @@ export default function Logo({
             <circle cx="50" cy="75" r="5" fill="#ec4899" className="node node-bottom" />
             <circle cx="25" cy="50" r="5" fill="#3b82f6" className="node node-left" />
             <circle cx="50" cy="50" r="7" fill="#f8fafc" className="node node-center" />
+          </svg>
+        );
+
+      case 5: // Orbital Smile (Vòng Cung Nụ Cười Quỹ Đạo)
+        return (
+          <svg
+            width={size}
+            height={size}
+            viewBox="0 0 100 100"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className={`circlelink-svg svg-variant-5 ${isAnimated}`}
+          >
+            <defs>
+              <linearGradient id="grad-orbital-5" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#38B6E8" />
+                <stop offset="55%" stopColor="#3B82F6" />
+                <stop offset="100%" stopColor="#7C3AED" />
+              </linearGradient>
+            </defs>
+
+            {/* Main open arc - "orbital smile" */}
+            <path
+              d="M78 30 A36 36 0 1 0 78 70"
+              stroke="url(#grad-orbital-5)"
+              strokeWidth="8"
+              strokeLinecap="round"
+              className="orbital-arc"
+            />
+
+            {/* Core ring, center */}
+            <circle cx="50" cy="50" r="13" stroke="#6D5BD0" strokeWidth="3" fill="none" className="orbital-core" />
+
+            {/* Orbiting dots */}
+            <circle cx="18" cy="50" r="5" fill="#22B8CF" className="orbital-dot orbital-dot-1" />
+            <circle cx="80" cy="32" r="4" fill="#9775FA" className="orbital-dot orbital-dot-2" />
+            <circle cx="80" cy="68" r="4" fill="#E64980" className="orbital-dot orbital-dot-3" />
           </svg>
         );
 

@@ -1,9 +1,45 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { eventService } from '../services/eventService';
 import Logo from '../components/Logo';
 import { getTranslations, getLanguage, setLanguage } from '../services/translations';
 import { supabase, isDemoMode } from '../supabaseClient';
+
+// Lightweight scroll-reveal hook (IntersectionObserver based, no external deps).
+// Attach the returned ref to any element and add className `lv-reveal` (+ `lv-revealed` when visible).
+function useReveal() {
+  const [revealedKeys, setRevealedKeys] = useState({});
+  const observerRef = useRef(null);
+
+  useEffect(() => {
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const key = entry.target.dataset.revealKey;
+            if (key) {
+              setRevealedKeys((prev) => (prev[key] ? prev : { ...prev, [key]: true }));
+            }
+            observerRef.current.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    return () => observerRef.current && observerRef.current.disconnect();
+  }, []);
+
+  const revealRef = useCallback((key) => (node) => {
+    if (node && observerRef.current) {
+      node.dataset.revealKey = key;
+      observerRef.current.observe(node);
+    }
+  }, []);
+
+  const isRevealed = (key) => !!revealedKeys[key];
+
+  return { revealRef, isRevealed };
+}
 
 function Home() {
   const [title, setTitle] = useState('');
@@ -15,13 +51,13 @@ function Home() {
   const [meetingLink, setMeetingLink] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [durationDays, setDurationDays] = useState('7');
-  
+
   // Multilingual State ('vi' or 'en')
   const [lang, setLang] = useState(getLanguage());
-  
+
   // Accordion FAQ State
   const [openFaq, setOpenFaq] = useState(null);
-  
+
   // Host Authentication States
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('circlelink_host_email'));
   const [hostEmail, setHostEmail] = useState(localStorage.getItem('circlelink_host_email') || '');
@@ -31,12 +67,17 @@ function Home() {
   // The event this host currently owns (1 event per email at a time)
   const [myEvent, setMyEvent] = useState(null);
 
+  // Landing v2: the create-event form now lives inside a modal, opened from any "Create event" CTA
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
   // Ref hooks for smooth scrolling
-  const formRef = useRef(null);
   const faqRef = useRef(null);
+  const featuresRef = useRef(null);
+  const howRef = useRef(null);
 
   const navigate = useNavigate();
   const t = getTranslations(lang);
+  const { revealRef, isRevealed } = useReveal();
 
   // Listen for Supabase Auth state changes (Google Login)
   useEffect(() => {
@@ -125,6 +166,7 @@ function Home() {
         setMeetingLink(pendingEvent.meetingLink || '');
         setEventDate(pendingEvent.eventDate || '');
         setDurationDays(pendingEvent.durationDays || '7');
+        setShowCreateModal(true);
 
         const autoCreate = async () => {
           setLoading(true);
@@ -174,7 +216,7 @@ function Home() {
   const handleTitleChange = (e) => {
     const val = e.target.value;
     setTitle(val);
-    
+
     // Auto slugify if slug hasn't been manually edited or is empty
     const slugified = val
       .toLowerCase()
@@ -255,24 +297,31 @@ function Home() {
     }
   };
 
-
-
   const handleLogout = async () => {
     await eventService.signOut();
     setIsLoggedIn(false);
     setHostEmail('');
   };
 
-  const handleTryNow = () => {
-    if (formRef.current) {
-      formRef.current.scrollIntoView({ behavior: 'smooth' });
+  // Opens the create-event modal (navbar / hero / pricing CTAs all funnel here)
+  const openCreateModal = () => {
+    setError('');
+    setShowCreateModal(true);
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+  };
+
+  const scrollToRef = (ref) => {
+    if (ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
-  const handleLearnMore = () => {
-    if (faqRef.current) {
-      faqRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+  // Demo route: App.jsx defines /event/:slug (NOT /e/:slug) — see route audit note in final report.
+  const goToDemo = () => {
+    navigate('/event/test-event');
   };
 
   const toggleFaq = (index) => {
@@ -288,545 +337,547 @@ function Home() {
     { q: t.faqQ6, a: t.faqA6 }
   ];
 
-  return (
-    <div className="warm-theme">
-      {/* Background blobs */}
-      <div className="bg-blob blob-1"></div>
-      <div className="bg-blob blob-2"></div>
-      <div className="bg-blob blob-3"></div>
+  const featureCards = [
+    { icon: 'fa-bolt', title: t.lvFeat1Title, desc: t.lvFeat1Desc },
+    { icon: 'fa-bullseye', title: t.lvFeat2Title, desc: t.lvFeat2Desc },
+    { icon: 'fa-lock', title: t.lvFeat3Title, desc: t.lvFeat3Desc },
+    { icon: 'fa-video', title: t.lvFeat4Title, desc: t.lvFeat4Desc },
+    { icon: 'fa-hourglass-half', title: t.lvFeat5Title, desc: t.lvFeat5Desc },
+    { icon: 'fa-chart-line', title: t.lvFeat6Title, desc: t.lvFeat6Desc }
+  ];
 
-      {/* Dynamic Navigation Header */}
-      <header className="app-header">
-        <div className="header-container">
-          <Logo variant={1} showText={true} size={36} />
-          
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            {/* Host session state or login prompt */}
-            {isLoggedIn ? (
-              <div className="host-session-badge">
-                <i className="fa-solid fa-user-tie" style={{ color: '#ff6b4a' }}></i>
+  const demoGuests = [
+    { name: 'Minh Anh', role: 'Founder' },
+    { name: 'Đức Thọ', role: 'Developer' },
+    { name: 'Thu Hà', role: 'Investor' }
+  ];
+
+  const revealClass = (key) => `lv-reveal${isRevealed(key) ? ' lv-revealed' : ''}`;
+
+  return (
+    <div className="landing-v2">
+      {/* Background decor: concentric rings + drifting dots */}
+      <div className="lv-bg-rings" aria-hidden="true">
+        <div className="lv-ring lv-ring-1"></div>
+        <div className="lv-ring lv-ring-2"></div>
+        <div className="lv-ring lv-ring-3"></div>
+        <div className="lv-dot-orbit"></div>
+        <div className="lv-dot-orbit"></div>
+        <div className="lv-dot-orbit"></div>
+        <div className="lv-dot-orbit"></div>
+        <div className="lv-dot-orbit"></div>
+      </div>
+
+      {/* 2.1 Navbar */}
+      <header className="lv-navbar">
+        <div className="lv-navbar-inner">
+          <div className="lv-brand">
+            <Logo variant={5} size={32} animated={true} />
+            <span><span className="lv-brand-circle">Circle</span><span className="lv-brand-link">Link</span></span>
+          </div>
+
+          <nav className="lv-nav-links">
+            <button onClick={() => scrollToRef(featuresRef)}>{t.navFeatures}</button>
+            <button onClick={() => scrollToRef(howRef)}>{t.navHowItWorks}</button>
+            <button onClick={() => scrollToRef(faqRef)}>{t.navFaq}</button>
+          </nav>
+
+          <div className="lv-nav-actions">
+            {isLoggedIn && (
+              <div className="lv-host-session-badge">
+                <i className="fa-solid fa-user-tie" style={{ color: 'var(--land-orange)' }}></i>
                 <span>{hostEmail}</span>
                 <button onClick={handleLogout} title={t.logout}>
                   <i className="fa-solid fa-right-from-bracket"></i>
                 </button>
               </div>
-            ) : null}
+            )}
 
-            {/* Language Switcher Button */}
-            <button className="lang-toggle-btn" onClick={handleLangToggle}>
+            <button className="lv-lang-btn" onClick={handleLangToggle}>
               <i className="fa-solid fa-globe" style={{ marginRight: '4px' }}></i>
               {lang === 'vi' ? 'EN' : 'VI'}
             </button>
 
-            {/* Back to Host Admin (when this host already has an event) */}
             {isLoggedIn && myEvent ? (
-              <button
-                className="btn btn-primary"
-                onClick={() => navigate(`/event/${myEvent.slug}/admin`)}
-                style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}
-              >
-                <i className="fa-solid fa-arrow-right-to-bracket"></i> {lang === 'vi' ? 'Trang quản trị' : 'Host Admin'}
+              <button className="lv-btn lv-btn-primary lv-btn-sm" onClick={() => navigate(`/event/${myEvent.slug}/admin`)}>
+                <i className="fa-solid fa-arrow-right-to-bracket"></i> {lang === 'vi' ? 'Quản trị' : 'Admin'}
               </button>
             ) : (
-              <button className="btn btn-outline" onClick={handleTryNow} style={{ padding: '8px 16px', fontSize: '13px', borderRadius: '20px' }}>
-                <i className="fa-solid fa-bolt"></i> {t.tryNow}
+              <button className="lv-btn lv-btn-primary lv-btn-sm" onClick={openCreateModal}>
+                <i className="fa-solid fa-plus"></i> {t.navCreateEvent}
               </button>
             )}
           </div>
         </div>
       </header>
 
-      <div className="home-container" style={{ marginTop: '20px' }}>
-        {/* Hero Section */}
-        <section className="hero-section">
-          {/* Main Locked SVG Logo Concept */}
-          <div className="hero-logo-large">
-            <Logo variant={1} size={110} animated={true} />
-          </div>
+      {/* 2.2 Hero */}
+      <section className="lv-hero">
+        <div className="lv-hero-logo-disc">
+          <Logo variant={5} size={110} animated={true} />
+        </div>
 
-          {/* Multilingual Hero Title */}
-          {lang === 'vi' ? (
-            <h1 className="hero-title">Mở Rộng <span>Vòng Tròn</span> Kết Nối</h1>
-          ) : (
-            <h1 className="hero-title">Expand Your <span>Social</span> Circle</h1>
-          )}
-          
-          {/* Slogan Container */}
-          <div className="hero-slogan-wrap" key={lang}>
-            <i className="fa-solid fa-quote-left" style={{ marginRight: '8px', opacity: 0.5, fontSize: '14px' }}></i>
-            {t.slogan}
-            <i className="fa-solid fa-quote-right" style={{ marginLeft: '8px', opacity: 0.5, fontSize: '14px' }}></i>
-          </div>
-
-          <p className="hero-subtitle">
-            {t.subtitle}
-          </p>
-
-          <div className="cta-buttons-wrap">
-            <button onClick={handleTryNow} className="btn btn-primary btn-glow btn-cta-try">
-              <i className="fa-solid fa-rocket"></i> {t.tryNow}
-            </button>
-            <button onClick={handleLearnMore} className="btn btn-outline btn-cta-learn">
-              <i className="fa-solid fa-circle-question"></i> {t.learnMore}
+        {isLoggedIn && myEvent && (
+          <div className="lv-my-event-banner">
+            <div>
+              <h4><i className="fa-solid fa-calendar-check" style={{ color: 'var(--land-orange)', marginRight: '8px' }}></i>{t.myEventBannerTitle}</h4>
+              <p>{myEvent.title} · /{myEvent.slug}</p>
+            </div>
+            <button className="lv-btn lv-btn-primary lv-btn-sm" onClick={() => navigate(`/event/${myEvent.slug}/admin`)}>
+              <i className="fa-solid fa-sliders"></i> {t.myEventBannerManage}
             </button>
           </div>
-        </section>
+        )}
 
-        {/* Interactive Step-by-Step Workflow */}
-        <section className="workflow-section">
-          <h3>{t.workflowTitle}</h3>
-          <div className="workflow-grid">
-            <div className="workflow-card glass">
-              <div className="workflow-step-num">1</div>
-              <h5>{t.step1Title}</h5>
-              <p>{t.step1Desc}</p>
-              <div className="workflow-arrow"><i className="fa-solid fa-chevron-right"></i></div>
+        {lang === 'vi' ? (
+          <h1 className="lv-hero-title">{t.heroTitlePrefix} <span className="lv-grad">{t.heroTitleHighlight}</span> {t.heroTitleSuffix}</h1>
+        ) : (
+          <h1 className="lv-hero-title">{t.heroTitlePrefix} <span className="lv-grad">{t.heroTitleHighlight}</span> {t.heroTitleSuffix}</h1>
+        )}
+
+        <p className="lv-slogan">
+          <span className="lv-quote">&ldquo;</span>{t.heroSloganV2}<span className="lv-quote">&rdquo;</span>
+        </p>
+
+        <p className="lv-hero-subtitle">{t.heroSubtitleV2}</p>
+
+        <div className="lv-cta-row">
+          <button className="lv-btn lv-btn-primary" onClick={openCreateModal}>
+            <i className="fa-solid fa-rocket"></i> {t.heroCtaCreate}
+          </button>
+          <button className="lv-btn lv-btn-outline" onClick={goToDemo}>
+            <i className="fa-solid fa-desktop"></i> {t.heroCtaDemo}
+          </button>
+        </div>
+
+        <p className="lv-social-proof">{t.heroSocialProof}</p>
+      </section>
+
+      {/* 2.3 How it works */}
+      <section
+        ref={(node) => { howRef.current = node; revealRef('how')(node); }}
+        className={`lv-section ${revealClass('how')}`}
+      >
+        <div className="lv-container">
+          <h2 className="lv-section-title">{t.howItWorksTitle}</h2>
+          <div className="lv-steps-grid">
+            <div className="lv-step-card">
+              <div className="lv-step-num">1</div>
+              <h4>{t.howStep1Title}</h4>
+              <p>{t.howStep1Desc}</p>
             </div>
-
-            <div className="workflow-card glass">
-              <div className="workflow-step-num">2</div>
-              <h5>{t.step2Title}</h5>
-              <p>{t.step2Desc}</p>
-              <div className="workflow-arrow"><i className="fa-solid fa-chevron-right"></i></div>
+            <div className="lv-step-card">
+              <div className="lv-step-num">2</div>
+              <h4>{t.howStep2Title}</h4>
+              <p>{t.howStep2Desc}</p>
             </div>
-
-            <div className="workflow-card glass">
-              <div className="workflow-step-num">3</div>
-              <h5>{t.step3Title}</h5>
-              <p>{t.step3Desc}</p>
-              <div className="workflow-arrow"><i className="fa-solid fa-chevron-right"></i></div>
-            </div>
-
-            <div className="workflow-card glass">
-              <div className="workflow-step-num">4</div>
-              <h5>{t.step4Title}</h5>
-              <p>{t.step4Desc}</p>
+            <div className="lv-step-card">
+              <div className="lv-step-num">3</div>
+              <h4>{t.howStep3Title}</h4>
+              <p>{t.howStep3Desc}</p>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* Redesigned Event Creation Form */}
-        <main 
-          ref={formRef} 
-          className="home-actions-card glass"
-          style={{ scrollMarginTop: '100px' }}
-        >
-          {isLoggedIn && myEvent ? (
-            /* Host already has an active event: show management card instead of the create form */
-            <div style={{ textAlign: 'center' }}>
-              <h3>
-                <i className="fa-solid fa-calendar-check" style={{ color: 'var(--accent-violet)', marginRight: '8px' }}></i>
-                {lang === 'vi' ? 'Sự kiện bạn đang tổ chức' : 'Your active event'}
-              </h3>
-
-              <div className="glass" style={{ padding: '20px', borderRadius: '14px', margin: '16px 0', border: '1px solid var(--border-color)' }}>
-                <h4 style={{ margin: '0 0 6px 0', fontSize: '18px', color: 'var(--text-primary)' }}>{myEvent.title}</h4>
-                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
-                  <i className="fa-solid fa-link" style={{ marginRight: '6px' }}></i>/{myEvent.slug}
-                </p>
+      {/* 2.4 Features */}
+      <section
+        ref={(node) => { featuresRef.current = node; revealRef('features')(node); }}
+        className={`lv-section ${revealClass('features')}`}
+      >
+        <div className="lv-container">
+          <h2 className="lv-section-title">{t.featuresTitle}</h2>
+          <div className="lv-features-grid">
+            {featureCards.map((f, i) => (
+              <div className="lv-feature-card" key={i}>
+                <div className="lv-feature-icon"><i className={`fa-solid ${f.icon}`}></i></div>
+                <h4>{f.title}</h4>
+                <p>{f.desc}</p>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                <button className="btn btn-primary btn-glow" onClick={() => navigate(`/event/${myEvent.slug}/admin`)}>
-                  <i className="fa-solid fa-sliders"></i> {lang === 'vi' ? 'Quản lý sự kiện' : 'Manage event'}
-                </button>
-                <button className="btn btn-outline" onClick={() => navigate(`/event/${myEvent.slug}`)}>
-                  <i className="fa-solid fa-desktop"></i> Live Board
-                </button>
-              </div>
+      {/* 2.5 Live demo mockup (pure CSS, no screenshot asset) */}
+      <section ref={revealRef('demo')} className={`lv-section ${revealClass('demo')}`}>
+        <div className="lv-container lv-demo-wrap">
+          <h2 className="lv-section-title">{t.demoTitle}</h2>
+          <p style={{ color: 'var(--land-muted)', marginTop: '-24px', marginBottom: '32px' }}>{t.demoSubtitle}</p>
 
-              <p style={{ marginTop: '18px', fontSize: '12.5px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                <i className="fa-solid fa-circle-info" style={{ marginRight: '6px' }}></i>
-                {lang === 'vi'
-                  ? 'Mỗi email chỉ được tổ chức 1 sự kiện tại một thời điểm. Để tạo sự kiện mới, hãy xóa sự kiện hiện tại trong trang quản trị.'
-                  : 'Each email can host only 1 event at a time. To create a new event, delete the current one from the admin page.'}
-              </p>
+          <div className="lv-demo-frame">
+            <div className="lv-demo-titlebar">
+              <span className="lv-dot lv-dot-red"></span>
+              <span className="lv-dot lv-dot-yellow"></span>
+              <span className="lv-dot lv-dot-green"></span>
+              <span style={{ marginLeft: '8px' }}>{t.demoLiveLabel}</span>
             </div>
-          ) : (
-          <>
-          <h3>
-            <i className="fa-solid fa-square-plus" style={{ color: 'var(--accent-violet)', marginRight: '8px' }}></i>
-            {t.formTitle}
-          </h3>
-
-          {error && (
-            <div style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.15)', color: '#dc2626', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', marginBottom: '20px', textAlign: 'left' }}>
-              <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '8px' }}></i> {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div className="form-group-home">
-              <label>{t.formNameLabel} <span className="required">*</span></label>
-              <div className="input-wrapper">
-                <i className="fa-solid fa-heading input-icon"></i>
-                <input 
-                  type="text" 
-                  placeholder={t.formNamePlaceholder} 
-                  value={title} 
-                  onChange={handleTitleChange} 
-                  required 
-                />
-              </div>
-            </div>
-
-            <div className="form-group-home">
-              <label>{t.formDescLabel}</label>
-              <div className="input-wrapper">
-                <i className="fa-solid fa-align-left input-icon"></i>
-                <input 
-                  type="text" 
-                  placeholder={t.formDescPlaceholder} 
-                  value={desc} 
-                  onChange={(e) => setDesc(e.target.value)} 
-                />
-              </div>
-            </div>
-
-            <div className="form-group-home">
-              <label>{t.eventTypeLabel}</label>
-              <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
-                <label 
-                  className={`filter-chip ${eventType === 'offline' ? 'active' : ''}`} 
-                  style={{ 
-                    cursor: 'pointer', 
-                    padding: '8px 16px', 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '6px',
-                    margin: 0,
-                    borderRadius: '20px',
-                    transition: 'all 0.2s',
-                    border: eventType === 'offline' ? '1px solid rgba(59, 42, 30, 0.3)' : '1px solid rgba(59, 42, 30, 0.08)',
-                    background: eventType === 'offline' ? 'rgba(59, 42, 30, 0.12)' : 'rgba(59, 42, 30, 0.03)',
-                    color: eventType === 'offline' ? '#3b2a1e' : 'rgba(59, 42, 30, 0.6)',
-                    fontWeight: eventType === 'offline' ? 'bold' : 'normal'
-                  }}
-                >
-                  <input 
-                    type="radio" 
-                    name="eventType" 
-                    value="offline" 
-                    checked={eventType === 'offline'} 
-                    onChange={() => setEventType('offline')}
-                    style={{ display: 'none' }}
-                  />
-                  <i className="fa-solid fa-people-group"></i>
-                  <span>{t.eventTypeOffline}</span>
-                </label>
-                <label 
-                  className={`filter-chip ${eventType === 'online' ? 'active' : ''}`} 
-                  style={{ 
-                    cursor: 'pointer', 
-                    padding: '8px 16px', 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '6px',
-                    margin: 0,
-                    borderRadius: '20px',
-                    transition: 'all 0.2s',
-                    border: eventType === 'online' ? '1px solid rgba(59, 42, 30, 0.3)' : '1px solid rgba(59, 42, 30, 0.08)',
-                    background: eventType === 'online' ? 'rgba(59, 42, 30, 0.12)' : 'rgba(59, 42, 30, 0.03)',
-                    color: eventType === 'online' ? '#3b2a1e' : 'rgba(59, 42, 30, 0.6)',
-                    fontWeight: eventType === 'online' ? 'bold' : 'normal'
-                  }}
-                >
-                  <input 
-                    type="radio" 
-                    name="eventType" 
-                    value="online" 
-                    checked={eventType === 'online'} 
-                    onChange={() => setEventType('online')}
-                    style={{ display: 'none' }}
-                  />
-                  <i className="fa-solid fa-video"></i>
-                  <span>{t.eventTypeOnline}</span>
-                </label>
-                <label 
-                  className={`filter-chip ${eventType === 'hybrid' ? 'active' : ''}`} 
-                  style={{ 
-                    cursor: 'pointer', 
-                    padding: '8px 16px', 
-                    display: 'inline-flex', 
-                    alignItems: 'center', 
-                    gap: '6px',
-                    margin: 0,
-                    borderRadius: '20px',
-                    transition: 'all 0.2s',
-                    border: eventType === 'hybrid' ? '1px solid rgba(59, 42, 30, 0.3)' : '1px solid rgba(59, 42, 30, 0.08)',
-                    background: eventType === 'hybrid' ? 'rgba(59, 42, 30, 0.12)' : 'rgba(59, 42, 30, 0.03)',
-                    color: eventType === 'hybrid' ? '#3b2a1e' : 'rgba(59, 42, 30, 0.6)',
-                    fontWeight: eventType === 'hybrid' ? 'bold' : 'normal'
-                  }}
-                >
-                  <input 
-                    type="radio" 
-                    name="eventType" 
-                    value="hybrid" 
-                    checked={eventType === 'hybrid'} 
-                    onChange={() => setEventType('hybrid')}
-                    style={{ display: 'none' }}
-                  />
-                  <i className="fa-solid fa-circle-nodes"></i>
-                  <span>{t.eventTypeHybrid}</span>
-                </label>
-              </div>
-            </div>
-
-            {eventType !== 'offline' && (
-              <div className="form-group-home" style={{ animation: 'fadeIn 0.3s ease' }}>
-                <label>{t.meetingLinkLabel} <span className="required">*</span></label>
-                <div className="input-wrapper">
-                  <i className="fa-solid fa-globe input-icon"></i>
-                  <input 
-                    type="url" 
-                    placeholder={t.meetingLinkPlaceholder} 
-                    value={meetingLink} 
-                    onChange={(e) => setMeetingLink(e.target.value)} 
-                    required 
-                  />
+            <div className="lv-demo-grid">
+              {demoGuests.map((g, i) => (
+                <div className="lv-demo-card" key={i}>
+                  <div className="lv-demo-avatar">{g.name.charAt(0)}</div>
+                  <h5>{g.name}</h5>
+                  <span>{g.role}</span>
                 </div>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <div className="form-group-home" style={{ flex: '1 1 220px' }}>
-                <label>{t.formEventDateLabel} <span className="required">*</span></label>
-                <div className="input-wrapper">
-                  <i className="fa-solid fa-calendar-days input-icon"></i>
-                  <input
-                    type="datetime-local"
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group-home" style={{ flex: '1 1 180px' }}>
-                <label>{t.formDurationLabel}</label>
-                <div className="input-wrapper">
-                  <i className="fa-solid fa-hourglass-half input-icon"></i>
-                  <select value={durationDays} onChange={(e) => setDurationDays(e.target.value)}>
-                    <option value="1">{t.formDuration1Day}</option>
-                    <option value="3">{t.formDuration3Days}</option>
-                    <option value="7">{t.formDuration7Days}</option>
-                    <option value="30">{t.formDuration30Days}</option>
-                  </select>
-                </div>
+              ))}
+              <div className="lv-demo-card lv-demo-card-placeholder">
+                <i className="fa-solid fa-circle-user" style={{ fontSize: '28px' }}></i>
+                <h5 style={{ margin: 0 }}>{t.demoGuestPlaceholderName}</h5>
+                <span>{t.demoGuestPlaceholderRole}</span>
               </div>
             </div>
+          </div>
 
-            <span style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'left', display: 'block', margin: '-8px 0 16px 2px' }}>
-              <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }}></i>
-              {t.formRetentionHint}
-            </span>
-
-            <div className="form-group-home">
-              <label>{t.formSlugLabel} <span className="required">*</span></label>
-              <div className="input-wrapper">
-                <i className="fa-solid fa-link input-icon"></i>
-                <input 
-                  type="text" 
-                  placeholder="url-su-kien" 
-                  value={slug} 
-                  onChange={(e) => setSlug(e.target.value.replace(/\s+/g, '-'))} 
-                  required 
-                />
-              </div>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', textAlign: 'left', display: 'block', marginTop: '4px' }}>
-                {t.formSlugHint}<strong>{slug || 'url-cua-ban'}</strong>
-              </span>
-              <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', textAlign: 'left', display: 'block', marginTop: '2px' }}>
-                <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }}></i>
-                {t.formSlugDateScopeHint}
-              </span>
-            </div>
-
-            <button type="submit" className="btn btn-primary btn-glow" style={{ width: '100%', marginTop: '10px' }} disabled={loading}>
-              {loading ? (
-                <span><i className="fa-solid fa-spinner fa-spin"></i> {t.formCreating}</span>
-              ) : (
-                <span><i className="fa-solid fa-rocket"></i> {t.formSubmitBtn}</span>
-              )}
+          <div className="lv-demo-cta">
+            <button className="lv-btn lv-btn-primary" onClick={goToDemo}>
+              <i className="fa-solid fa-desktop"></i> {t.demoCtaBtn}
             </button>
-          </form>
-          
-          {/* Disclaimer */}
-          <div style={{ marginTop: '16px', fontSize: '12.5px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
-            {lang === 'vi' ? (
-              <span>
-                Bằng cách tạo sự kiện, bạn đồng ý với{' '}
-                <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
-                  Điều khoản dịch vụ
-                </Link>{' '}
-                &{' '}
-                <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
-                  Chính sách bảo mật
-                </Link>
-                , đồng thời đồng ý cho phép CircleLink lưu trữ dữ liệu sự kiện trên Supabase.
-                {' '}{t.formRetentionDisclaimer}
-              </span>
-            ) : (
-              <span>
-                By creating an event, you agree to our{' '}
-                <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
-                  Terms of Service
-                </Link>{' '}
-                &{' '}
-                <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }}>
-                  Privacy Policy
-                </Link>
-                , and consent to event data storage on Supabase.
-                {' '}{t.formRetentionDisclaimer}
-              </span>
-            )}
           </div>
-          </>
-          )}
-        </main>
+        </div>
+      </section>
 
-        {/* Features grid */}
-        <section className="home-features-grid">
-          <div className="feature-card glass">
-            <div className="feature-icon">
-              <i className="fa-solid fa-qrcode"></i>
+      {/* 2.6 Pricing */}
+      <section ref={revealRef('pricing')} className={`lv-section ${revealClass('pricing')}`}>
+        <div className="lv-container">
+          <h2 className="lv-section-title">{t.pricingTitle}</h2>
+          <div className="lv-pricing-grid">
+            <div className="lv-pricing-card lv-pricing-free">
+              <span className="lv-pricing-badge">{t.pricingFreeBadge}</span>
+              <h3>{t.pricingFreeName}</h3>
+              <p className="lv-pricing-price">{t.pricingFreePrice}</p>
+              <ul className="lv-pricing-feature-list">
+                <li><i className="fa-solid fa-check" style={{ color: 'var(--land-orange)' }}></i> {t.pricingFreeGuests}</li>
+                <li><i className="fa-solid fa-check" style={{ color: 'var(--land-orange)' }}></i> {t.pricingFreeFeature}</li>
+              </ul>
+              <button className="lv-btn lv-btn-primary" onClick={openCreateModal}>
+                <i className="fa-solid fa-rocket"></i> {t.pricingFreeCta}
+              </button>
             </div>
-            <h4>{t.feat1Title}</h4>
-            <p>{t.feat1Desc}</p>
-          </div>
 
-          <div className="feature-card glass">
-            <div className="feature-icon">
-              <i className="fa-solid fa-address-card"></i>
+            <div className="lv-pricing-card lv-pricing-premium">
+              <span className="lv-pricing-badge">{t.pricingPremiumBadge}</span>
+              <h3>{t.pricingPremiumName}</h3>
+              <p className="lv-pricing-price">{t.pricingPremiumPrice}</p>
+              <ul className="lv-pricing-feature-list">
+                <li><i className="fa-solid fa-minus"></i> {t.pricingPremiumGuests}</li>
+              </ul>
+              <a className="lv-btn lv-btn-disabled" href="mailto:thanhinbali@gmail.com?subject=CircleLink%20Premium">
+                {t.pricingPremiumCta}
+              </a>
             </div>
-            <h4>{t.feat2Title}</h4>
-            <p>{t.feat2Desc}</p>
           </div>
+        </div>
+      </section>
 
-          <div className="feature-card glass">
-            <div className="feature-icon">
-              <i className="fa-solid fa-file-arrow-download"></i>
-            </div>
-            <h4>{t.feat3Title}</h4>
-            <p>{t.feat3Desc}</p>
-          </div>
-        </section>
+      {/* 2.7 FAQ */}
+      <section
+        ref={(node) => { faqRef.current = node; revealRef('faq')(node); }}
+        className={`lv-section ${revealClass('faq')}`}
+        style={{ scrollMarginTop: '80px' }}
+      >
+        <div className="lv-container">
+          <h2 className="lv-section-title">{t.faqTitle}</h2>
 
-        {/* Frequently Asked Questions FAQ Accordion */}
-        <section ref={faqRef} className="faq-section" style={{ scrollMarginTop: '100px' }}>
-          <h3>{t.faqTitle}</h3>
-          
-          <div className="faq-list">
+          <div className="lv-faq-list">
             {faqItems.map((item, index) => (
-              <div key={index} className={`faq-item glass ${openFaq === index ? 'active' : ''}`}>
-                <button className="faq-question" onClick={() => toggleFaq(index)}>
+              <div key={index} className={`lv-faq-item ${openFaq === index ? 'lv-active' : ''}`}>
+                <button className="lv-faq-question" onClick={() => toggleFaq(index)}>
                   <span>{item.q}</span>
                   <i className={`fa-solid ${openFaq === index ? 'fa-minus' : 'fa-plus'}`}></i>
                 </button>
-                <div className="faq-answer">
+                <div className="lv-faq-answer">
                   <p>{item.a}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="faq-author-contact glass" style={{ 
-            marginTop: '30px', 
-            padding: '24px', 
-            borderRadius: '16px', 
-            border: '1px solid var(--border-color)',
-            background: 'rgba(255, 255, 255, 0.02)',
-            textAlign: 'center'
-          }}>
-            <h4 style={{ margin: '0 0 10px 0', fontFamily: 'var(--font-heading)', fontWeight: '700', fontSize: '15px', color: 'var(--text-primary)' }}>
-              <i className="fa-solid fa-address-book" style={{ marginRight: '8px', color: 'var(--accent-violet)' }}></i>
-              {t.faqAuthorContactTitle}
-            </h4>
-            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              {t.faqAuthorContactText}
-            </p>
-            <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: 'var(--text-primary)', fontWeight: '600' }}>
-                <i className="fa-solid fa-user-circle" style={{ color: 'var(--accent-pink)' }}></i>
-                <span>Thanhvespa</span>
-              </div>
-              <a href="mailto:thanhinbali@gmail.com" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: '600' }}>
-                <i className="fa-solid fa-envelope" style={{ color: 'var(--accent-violet)' }}></i>
-                <span style={{ textDecoration: 'underline' }}>thanhinbali@gmail.com</span>
+          <div className="lv-faq-author">
+            <h4><i className="fa-solid fa-address-book" style={{ marginRight: '8px', color: 'var(--land-orange)' }}></i>{t.faqAuthorContactTitle}</h4>
+            <p>{t.faqAuthorContactText}</p>
+            <div className="lv-faq-author-links">
+              <span><i className="fa-solid fa-user-circle" style={{ color: 'var(--land-coral)', marginRight: '6px' }}></i>Thanhvespa</span>
+              <a href="mailto:thanhinbali@gmail.com">
+                <i className="fa-solid fa-envelope" style={{ marginRight: '6px' }}></i>thanhinbali@gmail.com
               </a>
             </div>
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       {/* Footer */}
-      <footer style={{ textAlign: 'center', padding: '40px 0 50px 0', borderTop: '1px solid var(--border-color)', marginTop: '60px', width: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginBottom: '10px', fontSize: '14px' }}>
-          <Link to="/terms" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
-            {t.legalTerms}
-          </Link>
-          <span style={{ color: 'var(--border-color)' }}>|</span>
-          <Link to="/privacy" target="_blank" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>
-            {t.legalPrivacy}
-          </Link>
+      <footer className="lv-footer">
+        <div className="lv-brand" style={{ justifyContent: 'center', marginBottom: '10px' }}>
+          <Logo variant={5} size={28} animated={false} />
+          <span><span className="lv-brand-circle">Circle</span><span className="lv-brand-link">Link</span></span>
         </div>
-        <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-          © {new Date().getFullYear()} CircleLink. All rights reserved. Powered by Supabase.
+        <p className="lv-footer-slogan">{t.footerSlogan}</p>
+        <div className="lv-footer-links">
+          <Link to="/terms" target="_blank">{t.legalTerms}</Link>
+          <span>|</span>
+          <Link to="/privacy" target="_blank">{t.legalPrivacy}</Link>
+        </div>
+        <p className="lv-footer-note">
+          <i className="fa-solid fa-shield-halved" style={{ marginRight: '6px' }}></i>{t.footerPdplNote}
         </p>
+        <p className="lv-footer-copy">© {new Date().getFullYear()} CircleLink. All rights reserved. Powered by Supabase.</p>
       </footer>
+
+      {/* Create Event Modal (all "Create event" CTAs open this) */}
+      {showCreateModal && (
+        <div className="lv-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeCreateModal(); }}>
+          <div className="lv-modal">
+            <button className="lv-modal-close" onClick={closeCreateModal}>
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+
+            {isLoggedIn && myEvent ? (
+              /* Host already has an active event: show management info instead of the create form */
+              <div style={{ textAlign: 'center' }}>
+                <h3>
+                  <i className="fa-solid fa-calendar-check" style={{ color: 'var(--land-orange)', marginRight: '8px' }}></i>
+                  {t.myEventBannerTitle}
+                </h3>
+
+                <div style={{ padding: '20px', borderRadius: '14px', margin: '16px 0', border: '1px solid var(--land-border)', background: '#fff' }}>
+                  <h4 style={{ margin: '0 0 6px 0', fontSize: '18px', color: 'var(--land-ink)' }}>{myEvent.title}</h4>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--land-muted)' }}>
+                    <i className="fa-solid fa-link" style={{ marginRight: '6px' }}></i>/{myEvent.slug}
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <button className="lv-btn lv-btn-primary" onClick={() => navigate(`/event/${myEvent.slug}/admin`)}>
+                    <i className="fa-solid fa-sliders"></i> {t.myEventBannerManage}
+                  </button>
+                  <button className="lv-btn lv-btn-outline" onClick={() => navigate(`/event/${myEvent.slug}`)}>
+                    <i className="fa-solid fa-desktop"></i> Live Board
+                  </button>
+                </div>
+
+                <p style={{ marginTop: '18px', fontSize: '12.5px', color: 'var(--land-muted)', lineHeight: '1.5' }}>
+                  <i className="fa-solid fa-circle-info" style={{ marginRight: '6px' }}></i>
+                  {lang === 'vi'
+                    ? 'Mỗi email chỉ được tổ chức 1 sự kiện tại một thời điểm. Để tạo sự kiện mới, hãy xóa sự kiện hiện tại trong trang quản trị.'
+                    : 'Each email can host only 1 event at a time. To create a new event, delete the current one from the admin page.'}
+                </p>
+              </div>
+            ) : (
+              <>
+                <h3>
+                  <i className="fa-solid fa-square-plus" style={{ color: 'var(--land-orange)', marginRight: '8px' }}></i>
+                  {t.formTitle}
+                </h3>
+
+                {error && (
+                  <div className="lv-error-box">
+                    <i className="fa-solid fa-triangle-exclamation" style={{ marginRight: '8px' }}></i> {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit}>
+                  <div className="lv-form-group">
+                    <label>{t.formNameLabel} <span className="required">*</span></label>
+                    <div className="lv-input-wrapper">
+                      <i className="fa-solid fa-heading"></i>
+                      <input
+                        type="text"
+                        placeholder={t.formNamePlaceholder}
+                        value={title}
+                        onChange={handleTitleChange}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="lv-form-group">
+                    <label>{t.formDescLabel}</label>
+                    <div className="lv-input-wrapper">
+                      <i className="fa-solid fa-align-left"></i>
+                      <input
+                        type="text"
+                        placeholder={t.formDescPlaceholder}
+                        value={desc}
+                        onChange={(e) => setDesc(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="lv-form-group">
+                    <label>{t.eventTypeLabel}</label>
+                    <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
+                      <label className={`lv-filter-chip ${eventType === 'offline' ? 'lv-active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="eventType"
+                          value="offline"
+                          checked={eventType === 'offline'}
+                          onChange={() => setEventType('offline')}
+                          style={{ display: 'none' }}
+                        />
+                        <i className="fa-solid fa-people-group"></i>
+                        <span>{t.eventTypeOffline}</span>
+                      </label>
+                      <label className={`lv-filter-chip ${eventType === 'online' ? 'lv-active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="eventType"
+                          value="online"
+                          checked={eventType === 'online'}
+                          onChange={() => setEventType('online')}
+                          style={{ display: 'none' }}
+                        />
+                        <i className="fa-solid fa-video"></i>
+                        <span>{t.eventTypeOnline}</span>
+                      </label>
+                      <label className={`lv-filter-chip ${eventType === 'hybrid' ? 'lv-active' : ''}`}>
+                        <input
+                          type="radio"
+                          name="eventType"
+                          value="hybrid"
+                          checked={eventType === 'hybrid'}
+                          onChange={() => setEventType('hybrid')}
+                          style={{ display: 'none' }}
+                        />
+                        <i className="fa-solid fa-circle-nodes"></i>
+                        <span>{t.eventTypeHybrid}</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {eventType !== 'offline' && (
+                    <div className="lv-form-group" style={{ animation: 'fadeIn 0.3s ease' }}>
+                      <label>{t.meetingLinkLabel} <span className="required">*</span></label>
+                      <div className="lv-input-wrapper">
+                        <i className="fa-solid fa-globe"></i>
+                        <input
+                          type="url"
+                          placeholder={t.meetingLinkPlaceholder}
+                          value={meetingLink}
+                          onChange={(e) => setMeetingLink(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div className="lv-form-group" style={{ flex: '1 1 220px' }}>
+                      <label>{t.formEventDateLabel} <span className="required">*</span></label>
+                      <div className="lv-input-wrapper">
+                        <i className="fa-solid fa-calendar-days"></i>
+                        <input
+                          type="datetime-local"
+                          value={eventDate}
+                          onChange={(e) => setEventDate(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="lv-form-group" style={{ flex: '1 1 180px' }}>
+                      <label>{t.formDurationLabel}</label>
+                      <div className="lv-input-wrapper">
+                        <i className="fa-solid fa-hourglass-half"></i>
+                        <select value={durationDays} onChange={(e) => setDurationDays(e.target.value)}>
+                          <option value="1">{t.formDuration1Day}</option>
+                          <option value="3">{t.formDuration3Days}</option>
+                          <option value="7">{t.formDuration7Days}</option>
+                          <option value="30">{t.formDuration30Days}</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className="lv-hint" style={{ margin: '-8px 0 16px 2px' }}>
+                    <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }}></i>
+                    {t.formRetentionHint}
+                  </span>
+
+                  <div className="lv-form-group">
+                    <label>{t.formSlugLabel} <span className="required">*</span></label>
+                    <div className="lv-input-wrapper">
+                      <i className="fa-solid fa-link"></i>
+                      <input
+                        type="text"
+                        placeholder="url-su-kien"
+                        value={slug}
+                        onChange={(e) => setSlug(e.target.value.replace(/\s+/g, '-'))}
+                        required
+                      />
+                    </div>
+                    <span className="lv-hint">
+                      {t.formSlugHint}<strong>{slug || 'url-cua-ban'}</strong>
+                    </span>
+                    <span className="lv-hint">
+                      <i className="fa-solid fa-circle-info" style={{ marginRight: '4px' }}></i>
+                      {t.formSlugDateScopeHint}
+                    </span>
+                  </div>
+
+                  <button type="submit" className="lv-btn lv-btn-primary" style={{ width: '100%', marginTop: '10px' }} disabled={loading}>
+                    {loading ? (
+                      <span><i className="fa-solid fa-spinner fa-spin"></i> {t.formCreating}</span>
+                    ) : (
+                      <span><i className="fa-solid fa-rocket"></i> {t.formSubmitBtn}</span>
+                    )}
+                  </button>
+                </form>
+
+                {/* Disclaimer */}
+                <div className="lv-modal-disclaimer">
+                  {lang === 'vi' ? (
+                    <span>
+                      Bằng cách tạo sự kiện, bạn đồng ý với{' '}
+                      <Link to="/terms" target="_blank">Điều khoản dịch vụ</Link>{' '}
+                      &{' '}
+                      <Link to="/privacy" target="_blank">Chính sách bảo mật</Link>
+                      , đồng thời đồng ý cho phép CircleLink lưu trữ dữ liệu sự kiện trên Supabase.
+                      {' '}{t.formRetentionDisclaimer}
+                    </span>
+                  ) : (
+                    <span>
+                      By creating an event, you agree to our{' '}
+                      <Link to="/terms" target="_blank">Terms of Service</Link>{' '}
+                      &{' '}
+                      <Link to="/privacy" target="_blank">Privacy Policy</Link>
+                      , and consent to event data storage on Supabase.
+                      {' '}{t.formRetentionDisclaimer}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Host Login Modal Dialog */}
       {showLoginModal && (
-        <div className="login-modal-overlay">
-          <div className="login-modal" style={{ maxWidth: '400px' }}>
-            <button className="btn-close-modal" onClick={() => setShowLoginModal(false)}>
+        <div className="lv-modal-overlay">
+          <div className="lv-modal" style={{ maxWidth: '400px' }}>
+            <button className="lv-modal-close" onClick={() => setShowLoginModal(false)}>
               <i className="fa-solid fa-xmark"></i>
             </button>
             <h3>{t.authTitle}</h3>
-            <p style={{ marginBottom: '24px' }}>{t.authSubtitle}</p>
-            
+            <p style={{ marginBottom: '24px', color: 'var(--land-muted)', fontSize: '13.5px' }}>{t.authSubtitle}</p>
+
             {loginError && (
-              <div style={{ background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.15)', color: '#dc2626', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', marginBottom: '20px', textAlign: 'left' }}>
+              <div className="lv-error-box">
                 <i className="fa-solid fa-circle-exclamation" style={{ marginRight: '8px' }}></i> {loginError}
               </div>
             )}
 
             {/* Google Sign In Button */}
-            <button 
-              type="button" 
-              className="btn btn-outline" 
+            <button
+              type="button"
+              className="lv-google-btn"
               onClick={async () => {
                 setLoginError('');
                 const { error } = await eventService.signInWithGoogle();
                 if (error) {
                   setLoginError(error.message);
                 }
-              }}
-              style={{ 
-                width: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '10px', 
-                padding: '12px',
-                borderRadius: '12px',
-                background: '#fff',
-                color: '#3c4043',
-                border: '1px solid #dadce0',
-                fontWeight: '600',
-                fontSize: '14.5px',
-                cursor: 'pointer',
-                boxShadow: '0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15)',
-                transition: 'background-color .218s, border-color .218s, box-shadow .218s'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = '#f8f9fa';
-                e.currentTarget.style.boxShadow = '0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = '#fff';
-                e.currentTarget.style.boxShadow = '0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15)';
               }}
             >
               <svg viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
@@ -839,29 +890,21 @@ function Home() {
             </button>
 
             {/* Login Consent Disclaimer */}
-            <div style={{ marginTop: '20px', fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: '1.4' }}>
+            <div className="lv-modal-disclaimer">
               {lang === 'vi' ? (
                 <span>
                   Bằng việc đăng nhập, bạn đồng ý với{' '}
-                  <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }} onClick={() => setShowLoginModal(false)}>
-                    Điều khoản
-                  </Link>{' '}
+                  <Link to="/terms" target="_blank" onClick={() => setShowLoginModal(false)}>Điều khoản</Link>{' '}
                   &{' '}
-                  <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }} onClick={() => setShowLoginModal(false)}>
-                    Chính sách bảo mật
-                  </Link>{' '}
+                  <Link to="/privacy" target="_blank" onClick={() => setShowLoginModal(false)}>Chính sách bảo mật</Link>{' '}
                   của chúng tôi, đồng thời chấp thuận xử lý dữ liệu trên Supabase.
                 </span>
               ) : (
                 <span>
                   By logging in, you agree to our{' '}
-                  <Link to="/terms" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }} onClick={() => setShowLoginModal(false)}>
-                    Terms
-                  </Link>{' '}
+                  <Link to="/terms" target="_blank" onClick={() => setShowLoginModal(false)}>Terms</Link>{' '}
                   &{' '}
-                  <Link to="/privacy" target="_blank" style={{ color: 'var(--accent-violet)', textDecoration: 'underline' }} onClick={() => setShowLoginModal(false)}>
-                    Privacy Policy
-                  </Link>
+                  <Link to="/privacy" target="_blank" onClick={() => setShowLoginModal(false)}>Privacy Policy</Link>
                   , and consent to Supabase data processing.
                 </span>
               )}

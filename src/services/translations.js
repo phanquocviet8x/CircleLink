@@ -93,6 +93,74 @@ const translations = {
     faqAuthorContactTitle: "Liên hệ tác giả",
     faqAuthorContactText: "Mọi thắc mắc, góp ý hoặc nhu cầu hợp tác phát triển dự án, vui lòng liên hệ trực tiếp với tác giả:",
 
+    // LANDING V2 - NAVBAR
+    navFeatures: "Tính năng",
+    navHowItWorks: "Cách hoạt động",
+    navFaq: "FAQ",
+    navCreateEvent: "Tạo sự kiện",
+
+    // LANDING V2 - HERO
+    heroTitlePrefix: "Mở Rộng",
+    heroTitleHighlight: "Vòng Tròn",
+    heroTitleSuffix: "Kết Nối",
+    heroSloganV2: "MỘT CHẠM KẾT NỐI, MỞ RỘNG VÒNG TRÒN.",
+    heroSubtitleV2: "Check-in sự kiện bằng QR — không app, không đăng ký, danh bạ kết nối realtime.",
+    heroCtaCreate: "Tạo sự kiện miễn phí",
+    heroCtaDemo: "Xem demo trực tiếp",
+    heroSocialProof: "Miễn phí 50 khách · Không cần cài app · Tự xóa dữ liệu sau sự kiện",
+    myEventBannerTitle: "Sự kiện bạn đang tổ chức",
+    myEventBannerManage: "Quản lý sự kiện",
+
+    // LANDING V2 - HOW IT WORKS
+    howItWorksTitle: "Cách hoạt động — 3 bước, 1 chạm",
+    howStep1Title: "Tạo sự kiện",
+    howStep1Desc: "30 giây, chọn ngày và thời hạn, nhận link + QR ngay lập tức.",
+    howStep2Title: "Khách quét QR check-in",
+    howStep2Desc: "Không app, không tài khoản, chọn avatar và giới thiệu bản thân.",
+    howStep3Title: "Vòng tròn hiện realtime",
+    howStep3Desc: "Danh bạ sống động trên màn hình lớn, kết nối đúng người cần gặp.",
+
+    // LANDING V2 - FEATURES
+    featuresTitle: "Tính năng nổi bật",
+    lvFeat1Title: "Realtime LiveBoard",
+    lvFeat1Desc: "Danh bạ khách mời cập nhật tức thời trên màn hình lớn, ai check-in là hiện ngay.",
+    lvFeat2Title: "Danh bạ có mục tiêu kết nối",
+    lvFeat2Desc: "Mỗi khách ghi rõ đang tìm gì, có thể giúp gì — kết nối đúng người, đúng nhu cầu.",
+    lvFeat3Title: "Quyền riêng tư từng liên hệ",
+    lvFeat3Desc: "Chủ động ẩn/hiện số điện thoại và email theo từng người bạn muốn chia sẻ.",
+    lvFeat4Title: "Online/Offline/Hybrid",
+    lvFeat4Desc: "Hỗ trợ đầy đủ sự kiện trực tiếp, trực tuyến hoặc kết hợp kèm link phòng họp.",
+    lvFeat5Title: "Tự hết hạn và xóa dữ liệu",
+    lvFeat5Desc: "Dữ liệu sự kiện tự động xóa vĩnh viễn sau khi kết thúc — bảo vệ quyền riêng tư.",
+    lvFeat6Title: "Host dashboard quản lý khách",
+    lvFeat6Desc: "Toàn quyền kiểm soát cổng check-in, danh sách khách và xuất dữ liệu CSV.",
+
+    // LANDING V2 - DEMO
+    demoTitle: "Xem CircleLink hoạt động",
+    demoSubtitle: "Danh bạ sự kiện thời gian thực, cập nhật ngay khi khách check-in.",
+    demoLiveLabel: "Live Board",
+    demoGuestPlaceholderName: "Bạn?",
+    demoGuestPlaceholderRole: "Quét QR",
+    demoCtaBtn: "Xem demo trực tiếp",
+
+    // LANDING V2 - PRICING
+    pricingTitle: "Bảng giá đơn giản",
+    pricingFreeBadge: "Dùng ngay",
+    pricingFreeName: "Free",
+    pricingFreePrice: "0đ",
+    pricingFreeGuests: "Tối đa 50 khách",
+    pricingFreeFeature: "Đầy đủ mọi tính năng",
+    pricingFreeCta: "Tạo sự kiện miễn phí",
+    pricingPremiumBadge: "Sắp ra mắt",
+    pricingPremiumName: "Premium",
+    pricingPremiumPrice: "—",
+    pricingPremiumGuests: "Không giới hạn khách",
+    pricingPremiumCta: "Đăng ký nhận thông báo sớm",
+
+    // LANDING V2 - FOOTER
+    footerPdplNote: "Dữ liệu tự động xóa sau khi sự kiện kết thúc.",
+    footerSlogan: "Một chạm kết nối, mở rộng vòng tròn.",
+
     // LIVE BOARD VIEW
     liveBoard: "Live Board",
     hostAdmin: "Host Admin",
@@ -286,6 +354,74 @@ const translations = {
     faqA6: "For online or hybrid events, hosts can configure an online meeting link (Zoom, Meet, Teams...). Right after checking in successfully, guests are presented with a button to join the online meeting room directly, and they can browse the directory to network with other attendees.",
     faqAuthorContactTitle: "Contact Author",
     faqAuthorContactText: "For any questions, feedback, or development inquiries, please contact the author directly:",
+
+    // LANDING V2 - NAVBAR
+    navFeatures: "Features",
+    navHowItWorks: "How it works",
+    navFaq: "FAQ",
+    navCreateEvent: "Create event",
+
+    // LANDING V2 - HERO
+    heroTitlePrefix: "Grow Your",
+    heroTitleHighlight: "Circle",
+    heroTitleSuffix: "of Connections",
+    heroSloganV2: "ONE TAP TO CONNECT, ONE CIRCLE TO GROW.",
+    heroSubtitleV2: "QR event check-in — no app, no signup, a realtime connection directory.",
+    heroCtaCreate: "Create a free event",
+    heroCtaDemo: "See live demo",
+    heroSocialProof: "Free for 50 guests · No app needed · Data auto-deletes after the event",
+    myEventBannerTitle: "Your active event",
+    myEventBannerManage: "Manage event",
+
+    // LANDING V2 - HOW IT WORKS
+    howItWorksTitle: "How it works — 3 steps, 1 tap",
+    howStep1Title: "Create your event",
+    howStep1Desc: "30 seconds — pick a date and lifetime, get your link + QR instantly.",
+    howStep2Title: "Guests scan the QR to check in",
+    howStep2Desc: "No app, no account — just pick an avatar and introduce themselves.",
+    howStep3Title: "The circle appears in realtime",
+    howStep3Desc: "A living directory on the big screen, connecting the right people.",
+
+    // LANDING V2 - FEATURES
+    featuresTitle: "Key Features",
+    lvFeat1Title: "Realtime LiveBoard",
+    lvFeat1Desc: "The guest directory updates instantly on the big screen as people check in.",
+    lvFeat2Title: "Goal-driven directory",
+    lvFeat2Desc: "Every guest states what they're looking for and how they can help — matching the right people.",
+    lvFeat3Title: "Per-contact privacy",
+    lvFeat3Desc: "Choose to show or hide your phone and email on a per-person basis.",
+    lvFeat4Title: "Online/Offline/Hybrid",
+    lvFeat4Desc: "Full support for in-person, virtual, or hybrid events with a meeting link.",
+    lvFeat5Title: "Auto-expiry & data deletion",
+    lvFeat5Desc: "Event data is permanently deleted after it ends — privacy by design.",
+    lvFeat6Title: "Host dashboard",
+    lvFeat6Desc: "Full control over the check-in gate, guest list, and CSV export.",
+
+    // LANDING V2 - DEMO
+    demoTitle: "See CircleLink in action",
+    demoSubtitle: "A realtime event directory, updating the moment guests check in.",
+    demoLiveLabel: "Live Board",
+    demoGuestPlaceholderName: "You?",
+    demoGuestPlaceholderRole: "Scan QR",
+    demoCtaBtn: "See live demo",
+
+    // LANDING V2 - PRICING
+    pricingTitle: "Simple pricing",
+    pricingFreeBadge: "Use now",
+    pricingFreeName: "Free",
+    pricingFreePrice: "$0",
+    pricingFreeGuests: "Up to 50 guests",
+    pricingFreeFeature: "All features included",
+    pricingFreeCta: "Create a free event",
+    pricingPremiumBadge: "Coming soon",
+    pricingPremiumName: "Premium",
+    pricingPremiumPrice: "—",
+    pricingPremiumGuests: "Unlimited guests",
+    pricingPremiumCta: "Notify me early",
+
+    // LANDING V2 - FOOTER
+    footerPdplNote: "Data auto-deletes after the event ends.",
+    footerSlogan: "One tap to connect, one circle to grow.",
 
     // LIVE BOARD VIEW
     liveBoard: "Live Board",
